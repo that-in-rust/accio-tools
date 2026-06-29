@@ -105,3 +105,79 @@ Do not build a full MCP proxy, UI, live server connector, security scanner, mode
 [11]: https://github.com/aurelio-labs/semantic-router "GitHub - aurelio-labs/semantic-router: Superfast AI decision making and intelligent processing of multi-modal data. · GitHub"
 [12]: https://github.com/grossiweb/ToolRoute "GitHub - grossiweb/ToolRoute: Intelligent routing layer for AI agents: recommends the best MCP server and LLM for any task, scored on 132+ real benchmark executions. · GitHub"
 [13]: https://github.com/dgenio/contextweaver "GitHub - dgenio/contextweaver: Budget-aware context compilation and context firewall for tool-heavy AI agents. · GitHub"
+
+
+# Other Notes
+
+``` text
+
+you've a query and you've tool descriptions and probably features. 
+
+Next you'll calculate cosine similarity between your query and tool descriptions and re-rank them based on increasing distance.
+
+You'll then return top-k tools in that ordering.
+
+If you remove the MCP/server/tool language we are left with: Given a natural language query and a large graph of capabilities, identify the smallest connected subgraph that contains everything needed to answer the query.
+
+I’m thinking of each tool as a node in a graph. Each node can be connected based on semantic similarity of descriptions, parameter overlap, historical co-usage etc.
+
+From the example that’s been given: “Checkout started failing after release 1242” release gets mapped to commit which gets mapped to GitHub as a tool.
+
+So this becomes a graph problem: Find the minimum neighborhood around the most relevant nodes.
+
+
+* **Baseline approach (semantic retrieval):**
+
+  * Convert the user's natural language query into an embedding.
+  * Embed every tool description (and optionally tool metadata/features).
+  * Compute **cosine similarity** between the query embedding and each tool embedding.
+  * Rank tools by decreasing similarity (or increasing cosine distance).
+  * Return the **top-k** most relevant tools. This is the standard semantic tool routing approach. ([vLLM Semantic Router][1])
+
+* **Abstracting away MCP/tools:**
+
+  * Ignore terms like *MCP*, *server*, and *tool*.
+  * The problem becomes:
+
+    * **Given a natural language query and a large graph of capabilities, identify the smallest connected subgraph that contains everything needed to answer the query.**
+
+* **Graph interpretation:**
+
+  * Model each capability/tool as a **node**.
+  * Add edges based on relationships such as:
+
+    * Semantic similarity between descriptions.
+    * Parameter or schema overlap.
+    * Historical co-usage.
+    * Shared data sources or dependencies.
+    * Domain relationships.
+
+* **Example reasoning:**
+
+  * Query: *"Checkout started failing after release 1242."*
+  * Semantic retrieval identifies **Release** as the primary concept.
+  * The graph expands through connected capabilities:
+
+    * Release → Commit
+    * Commit → GitHub
+    * Potentially GitHub → CI/CD → Logs → Monitoring
+  * The system retrieves only the local neighborhood required to investigate the issue.
+
+* **Key insight:**
+
+  * Instead of selecting **independent top-k tools**, treat routing as a **graph search problem**.
+  * The objective shifts from:
+
+    * *"Which tools are individually most similar?"*
+  * To:
+
+    * *"Which minimal connected neighborhood of capabilities collectively solves the user's task?"*
+
+* **Implication:**
+
+  * Semantic similarity becomes the **entry point** into the graph.
+  * Graph traversal then discovers additional capabilities needed through explicit relationships, yielding a smaller, more coherent execution plan than simple top-k retrieval. This aligns with broader work on semantic routing and graph-based retrieval.
+
+[1]: https://vllm-semantic-router.com/blog/semantic-tool-selection/?utm_source=chatgpt.com "Building Smarter AI Agents with Context-Aware Routing"
+
+```
