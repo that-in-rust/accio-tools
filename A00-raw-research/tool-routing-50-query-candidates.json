@@ -1,0 +1,769 @@
+{
+  "purpose": "Fast 50-query tool-routing evaluation subset assembled from existing public benchmarks and cloned reference repos.",
+  "selection_note": "This is not a new benchmark. It is a pragmatic 5-hour subset with existing labels where available, covering pure retrieval, MCP-shaped routing, API routing, function selection, and irrelevance/no-call cases.",
+  "entries": [
+    {
+      "id": "Q01",
+      "source": "LiveMCPBench",
+      "source_file": "git-ref-repo/LiveMCPBench/annotated_data/all_annotations.json",
+      "source_id": "0e3287cb-c0ff-4d2a-8c3d-d8833014a7b0",
+      "query": "Generate a well-formatted PDF report titled wechat_reading_report.pdf in /root/pdf, summarizing current WeChat Reading trends and including a word cloud.",
+      "gold_tools_or_apis": "1. get-weread-rank 2. generate_word_cloud_chart 3. create_document 4. add_paragraph 5. add_picture 6. convert_to_pdf",
+      "category": "Office",
+      "routing_relevance": "MCP-shaped multi-tool task with annotated tool list"
+    },
+    {
+      "id": "Q02",
+      "source": "LiveMCPBench",
+      "source_file": "git-ref-repo/LiveMCPBench/annotated_data/all_annotations.json",
+      "source_id": "99d7541a-73c0-4ea1-8002-a70a041f3ffc",
+      "query": "Please perform a comprehensive analysis of the audio file located at /root/music/mixkit-retro-game-emergency-alarm-1000.wav. The analysis should include beat tracking, MFCC extraction, and chroma CQT calculation. Upon completion, please provide the resulting data along with a brief summary of the findings.",
+      "gold_tools_or_apis": "1. load 2. beat_track 3. mfcc 4. chroma_cqt",
+      "category": "Leisure",
+      "routing_relevance": "MCP-shaped multi-tool task with annotated tool list"
+    },
+    {
+      "id": "Q03",
+      "source": "LiveMCPBench",
+      "source_file": "git-ref-repo/LiveMCPBench/annotated_data/all_annotations.json",
+      "source_id": "dda8ea55-629c-4ae8-ab87-0c81477ae615",
+      "query": "I'm planning a trip to the Forbidden City in Beijing, show me where to park and what's interesting to do within 1km distance?",
+      "gold_tools_or_apis": "1. geocode_address 2. find_parking_facilities 3. find_nearby_places 4. reverse_geocode",
+      "category": "Travel",
+      "routing_relevance": "MCP-shaped multi-tool task with annotated tool list"
+    },
+    {
+      "id": "Q04",
+      "source": "LiveMCPBench",
+      "source_file": "git-ref-repo/LiveMCPBench/annotated_data/all_annotations.json",
+      "source_id": "629106a5-9508-4ac9-97c3-f22f6069ee7f",
+      "query": "My goal is to reach Radiant in Valorant, what should I focus on to improve and start climbing?",
+      "gold_tools_or_apis": "1. valorant-characters-statistics",
+      "category": "Leisure",
+      "routing_relevance": "MCP-shaped multi-tool task with annotated tool list"
+    },
+    {
+      "id": "Q05",
+      "source": "LiveMCPBench",
+      "source_file": "git-ref-repo/LiveMCPBench/annotated_data/all_annotations.json",
+      "source_id": "5a2720cd-20f1-49e7-a3fc-8e74af2217f6",
+      "query": "There are three of us. One person is in Haidian Huangzhuang, another is at Chaoyang Joy City, and the third is at Shijingshan Hospital. Could you please recommend a fair meeting point for us, and then suggest some places for entertainment nearby?",
+      "gold_tools_or_apis": "1. geocode_address 2. suggest_meeting_point 3. find_nearby_places 4. reverse_geocode",
+      "category": "Travel",
+      "routing_relevance": "MCP-shaped multi-tool task with annotated tool list"
+    },
+    {
+      "id": "Q06",
+      "source": "LiveMCPBench",
+      "source_file": "git-ref-repo/LiveMCPBench/annotated_data/all_annotations.json",
+      "source_id": "e9df60b1-37a6-4b10-aff0-d432fa79d400",
+      "query": "Please help me find the latest articles about 'MCP' on arXiv. Identify the potentially most influential papers among them and analyze the current trends in this field.",
+      "gold_tools_or_apis": "1. search_papers 2. get_paper_data",
+      "category": "Lifestyle",
+      "routing_relevance": "MCP-shaped multi-tool task with annotated tool list"
+    },
+    {
+      "id": "Q07",
+      "source": "LiveMCPBench",
+      "source_file": "git-ref-repo/LiveMCPBench/annotated_data/all_annotations.json",
+      "source_id": "2b96c022-a2db-47a5-981a-03cc6ad8f95e",
+      "query": "Run a full reconnaissance on www.baidu.com. Give me a markdown report on /root/markdown/baidu_report.md with whois information and sitemap.",
+      "gold_tools_or_apis": "1. whois_domain 2. get_sitemap_tree 3. write_file",
+      "category": "Office",
+      "routing_relevance": "MCP-shaped multi-tool task with annotated tool list"
+    },
+    {
+      "id": "Q08",
+      "source": "LiveMCPBench",
+      "source_file": "git-ref-repo/LiveMCPBench/annotated_data/all_annotations.json",
+      "source_id": "88ccea26-01f6-4db6-ba95-6b2a73c0488b",
+      "query": "Analyze Apple's stock for the past year and summarize it in a PPT in /root/ppt/apple.pptx.",
+      "gold_tools_or_apis": "1. get_historical_stock_prices 2. get_news 3. get_recommendations 4. create_presentation 5. save_presentation",
+      "category": "Finance",
+      "routing_relevance": "MCP-shaped multi-tool task with annotated tool list"
+    },
+    {
+      "id": "Q09",
+      "source": "LiveMCPBench",
+      "source_file": "git-ref-repo/LiveMCPBench/annotated_data/all_annotations.json",
+      "source_id": "230fb273-b316-4a8f-9297-89ce5558bc6c",
+      "query": "Find today's LeetCode Daily Challenge and generate a detailed markdown document in /root/markdown/leetcode_daily.md that provides a comprehensive walkthrough of the problem.",
+      "gold_tools_or_apis": "1. get-daily-challenge 2. write_file",
+      "category": "Lifestyle",
+      "routing_relevance": "MCP-shaped multi-tool task with annotated tool list"
+    },
+    {
+      "id": "Q10",
+      "source": "LiveMCPBench",
+      "source_file": "git-ref-repo/LiveMCPBench/annotated_data/all_annotations.json",
+      "source_id": "f2a9eb67-efec-4c86-abad-efa55a72f86d",
+      "query": "Generate a deep report of bitcoin and save it in /root/markdown/bitcoin.md",
+      "gold_tools_or_apis": "1. research-with-keywords 2. write_file",
+      "category": "Finance",
+      "routing_relevance": "MCP-shaped multi-tool task with annotated tool list"
+    },
+    {
+      "id": "Q11",
+      "source": "LiveMCPBench",
+      "source_file": "git-ref-repo/LiveMCPBench/annotated_data/all_annotations.json",
+      "source_id": "08644b1a-ac5e-45a9-8ad1-3a3942e8d366",
+      "query": "Help me recommend any cheap goodies worth buying recently? Save this information to /root/excel/goods.xlsx.",
+      "gold_tools_or_apis": "1. get-smzdm-rank 2. excel_write_to_sheet",
+      "category": "Shopping",
+      "routing_relevance": "MCP-shaped multi-tool task with annotated tool list"
+    },
+    {
+      "id": "Q12",
+      "source": "LiveMCPBench",
+      "source_file": "git-ref-repo/LiveMCPBench/annotated_data/all_annotations.json",
+      "source_id": "3c65e618-2ed0-444b-b7c7-6135d3841976",
+      "query": "Recommend me a combination of dishes for a potluck dinner for three people and then tell me what ingredients I need to prepare in total and how each dish should be prepared",
+      "gold_tools_or_apis": "1. mcp_howtocook_whatToEat 2. mcp_howtocook_getRecipeById",
+      "category": "Shopping",
+      "routing_relevance": "MCP-shaped multi-tool task with annotated tool list"
+    },
+    {
+      "id": "Q13",
+      "source": "MCP-Bench",
+      "source_file": "git-ref-repo/mcp-bench/tasks/mcpbench_tasks_single_runner_format.json",
+      "source_id": "openapi_explorer_000",
+      "query": "Hey, I’m working on this new dashboard that pulls search results from three different services—one for AI stuff, one for code hosting, and one for edge networking—and I’m scratching my head over how each handles pagination. Some APIs might use a page/page_size setup, others a cursor or next_cursor, and I’m not even sure if all of them support paging in their search calls or if I have to switch to their “list” routes instead. Could you dig into each service’s search endpoints and tell me: • whether it pages at all or not • if it does, what style it uses (page numbers, cursors, etc.) • the exact parameter names, types, required flags, and defaults • any response fields that indicate where to pick up the next batch And if a service’s search doesn’t page, check its list endpoints the same way. I really need a solid breakdown—names, defaults, response tokens—the whole picture, so I can convince my boss this setup will actually work. Need real details, not guesses. Thanks!",
+      "gold_tools_or_apis": [
+        "OpenAPI Explorer"
+      ],
+      "category": "OpenAPI Explorer",
+      "routing_relevance": "MCP server/task benchmark; good for routing by server/tool metadata and multi-step dependencies"
+    },
+    {
+      "id": "Q14",
+      "source": "MCP-Bench",
+      "source_file": "git-ref-repo/mcp-bench/tasks/mcpbench_tasks_single_runner_format.json",
+      "source_id": "openapi_explorer_001",
+      "query": "Hey, I’m building a little integration for my team and could really use a sanity check on two services we’re about to hook up. One of them is an AI platform where most of what I’ll do is “create” stuff (models, completions, that kind of thing), and the other is a code-hosting service where I only care about endpoints under “/repos” for cloning, PRs, labels, etc. Here’s what I’m trying to figure out: for each of those AI create-calls, how many required fields do I actually need to send? And then for the repo routes on the other side, how many mandatory inputs are there in the path, query string or request body? On top of that, each service uses its own auth methods—API keys, OAuth2 flows, maybe others—and I’d love to know which types each one offers and which types they share so I can reuse our login flow. It’d be a huge help if you could pull those counts straight from their specs, highlight any endpoints that demand more than three required inputs (those will need extra form design on our side), list out the auth scheme types for both platforms, and then point out the overlap. Ideally I’d get back a tidy JSON-style summary I can hand off to my manager. And please, real numbers only—I can’t show up with guesswork. Thanks! Please ensure all findings are supported by concrete data and verifiable sources. I need specific numbers and evidence, not generalizations.",
+      "gold_tools_or_apis": [
+        "Call OpenAPI Explorer:getApiOverview",
+        "OpenAPI Explorer:getApiOperation"
+      ],
+      "category": "OpenAPI Explorer",
+      "routing_relevance": "MCP server/task benchmark; good for routing by server/tool metadata and multi-step dependencies"
+    },
+    {
+      "id": "Q15",
+      "source": "MCP-Bench",
+      "source_file": "git-ref-repo/mcp-bench/tasks/mcpbench_tasks_single_runner_format.json",
+      "source_id": "unit_converter_000",
+      "query": "Hey, I’m prepping for a Reactor X startup tomorrow and it’s stressing me out a bit. My boss handed me 14 different sensor readings, all in weird units, and I need to know if we meet the safety thresholds (which are all in SI or related metric units). Here’s what I’ve got: - Inlet temperature: 350 °F (threshold 150 °C) - Inlet pressure: 50 psi (threshold 350 kPa) - Reactor length: 10 ft (threshold 5 m) - Catalyst weight: 500 lb (threshold 200 kg) - Tank volume: 2000 imperial gal (threshold 8 m³) - Data buffer: 2 GB (threshold 1500 MB) - Heat-exchanger area: 1000 ft² (threshold 90 m²) - Motor power: 50 hp (threshold 40 kW) - Reaction time: 2 hours (threshold 6000 s) - Valve angle: 0.25 turns (threshold 45 °) - Conveyor speed: 2 m/s (threshold 4000 ft/min) - Valve force: 500 lbf (threshold 2000 N) - Fluid density: 128 lb/ft³ (threshold 2000 kg/m³) - Fuel energy: 10000 Btu (threshold 12000 kJ) Could you convert each reading into the same units as its threshold, then tell me for each one whether it passes (converted ≥ threshold) or fails? And if any come up as a fail, I’d really appreciate you doing a second check with a different conversion route—just to be absolutely sure we didn’t slip up on units. It’d be awesome if you could bundle everything in a JSON summary that shows, for each sensor: its name, the original reading, the converted value with units, the threshold with units, pass/fail status, and the cross-validation details when you’ve done that extra check. I really need actual numbers on this—can’t go to my boss with just opinions. Thanks! Please ensure all findings are supported by concrete data and verifiable sources. I need specific numbers and evidence, not generalizations.",
+      "gold_tools_or_apis": [
+        "Unit Converter"
+      ],
+      "category": "Unit Converter",
+      "routing_relevance": "MCP server/task benchmark; good for routing by server/tool metadata and multi-step dependencies"
+    },
+    {
+      "id": "Q16",
+      "source": "MCP-Bench",
+      "source_file": "git-ref-repo/mcp-bench/tasks/mcpbench_tasks_single_runner_format.json",
+      "source_id": "unit_converter_001",
+      "query": "I’m gearing up for a 2 h 30 min high-altitude drone test flight and my boss wants every single detail in SI. Right now all my numbers are in U.S. customary units: engine inlet at 500 °F and outlet at 300 °F; propeller pitch is 15° (I’d like that in gons); cruise speed is 60 knots; altitude’s 10 000 ft; wing span 15 ft; wing area 1 200 in²; cargo-bay pressure 50 psi; takeoff thrust 3 000 lbf; on-board log storage is 2 GB with a 10 MB downlink buffer; battery capacity 5 kWh over this 2 h 30 min flight; and the fuel tank holds 200 US gal of fuel whose density is 810 g/L. Can you help me convert all of that—temperatures to kelvins, angle to gons, speed to m/s, lengths to meters, area to m², pressure to pascals, force to newtons, storage to bytes, energy to joules, compute the average power draw in kW then to horsepower, volume to m³, density to kg/m³, and time to seconds—then calculate the total starting fuel mass in kilograms and, if it ends up over 100 kg, report it in tonnes (otherwise in pounds)? In the end I need a tidy JSON where each entry has original_value, original_unit, converted_value, converted_unit, plus two computed fields—average_power and starting_fuel_mass—and a note on which fuel-mass branch you chose. I really need solid, data-driven numbers here—no hand-wavy estimates.",
+      "gold_tools_or_apis": [
+        "Unit Converter"
+      ],
+      "category": "Unit Converter",
+      "routing_relevance": "MCP server/task benchmark; good for routing by server/tool metadata and multi-step dependencies"
+    },
+    {
+      "id": "Q17",
+      "source": "MCP-Bench",
+      "source_file": "git-ref-repo/mcp-bench/tasks/mcpbench_tasks_single_runner_format.json",
+      "source_id": "wikipedia_000",
+      "query": "I’m prepping for a presentation on the big global climate deals and could really use some solid data. Could you find the main half-dozen—or so—negotiation frameworks that show up most often and give me a quick intro to each, plus roughly how many internal links or references they have? Then dive into the Paris Agreement: I’d like about a 200-word summary focused on its emission-reduction targets and five standout facts. After that, I’m curious what topics usually pop up alongside the Kyoto Protocol—aim for at least five related ideas, and if you only spot a few, try to round it out. Oh, and would you cross-check those five Paris facts against your summary and flag any that don’t actually appear there? Finally, please wrap everything into a single JSON output since my professor insists on that. And whatever you pull, make sure it’s backed by real numbers or citations—I can’t go in there with just opinions.",
+      "gold_tools_or_apis": [
+        "Call Wikipedia:extract_key_facts",
+        "Call Wikipedia:get_article",
+        "Call Wikipedia:get_links",
+        "Call Wikipedia:get_related_topics",
+        "Call Wikipedia:get_sections",
+        "Call Wikipedia:get_summary",
+        "Call Wikipedia:summarize_article_for_query",
+        "Call Wikipedia:summarize_article_section",
+        "Use Wikipedia:search_wikipedia",
+        "Wikipedia:get_related_topics"
+      ],
+      "category": "Wikipedia",
+      "routing_relevance": "MCP server/task benchmark; good for routing by server/tool metadata and multi-step dependencies"
+    },
+    {
+      "id": "Q18",
+      "source": "MCP-Bench",
+      "source_file": "git-ref-repo/mcp-bench/tasks/mcpbench_tasks_single_runner_format.json",
+      "source_id": "wikipedia_001",
+      "query": "I’m putting together a sustainability briefing and need to really understand how solar panels stack up against wind turbines when it comes to environmental impacts—think resource use, lifecycle emissions, land use, etc. Could you: - Give me a short, punchy summary of each technology’s environmental footprint (a paragraph or two each). - Pull out about five of the most important facts related to their environmental impact for each, and show them side-by-side so I can see the main differences at a glance. On top of that, I’ve got to cover the policy side—what incentive schemes or regulatory frameworks are actually driving solar and wind adoption right now? A clear, two-to-three-paragraph overview of the key support mechanisms would be great. While you’re at it, when you look at the main write-ups on solar and wind, do they actually link to that policy overview? Let me know “yes” or “no” for each. Lastly, if you spot another renewable technology in those policy discussions that seems like a smart next step for us to research, tell me which one and give me two sentences on why it’s worth a closer look. I’m presenting next week, so I really need solid numbers and references—can’t go in with just vague statements. Thanks!",
+      "gold_tools_or_apis": [
+        "Wikipedia"
+      ],
+      "category": "Wikipedia",
+      "routing_relevance": "MCP server/task benchmark; good for routing by server/tool metadata and multi-step dependencies"
+    },
+    {
+      "id": "Q19",
+      "source": "MCP-Bench",
+      "source_file": "git-ref-repo/mcp-bench/tasks/mcpbench_tasks_multi_2server_runner_format.json",
+      "source_id": "paper_search_biomcp_000",
+      "query": "I’m working on a project about why melanoma patients with the BRAF V600E mutation so often become resistant to treatment, and I’m a bit stuck piecing everything together. I’d love to know: • What we actually know about that V600E change in BRAF – basic gene details, how it tweaks the protein’s function, and any hotspots or annotations researchers point to. • The most important recent studies (including a couple of preprints if there’s anything interesting) that dive into resistance mechanisms. Can you give me their titles, abstracts or main take-home points, and any standout data? • Which clinical trials are currently testing BRAF inhibitors in melanoma (ideally phase 2 or 3), plus their IDs, names, phases, and where they’re recruiting. • And, almost as a bonus, whether any of those trial sites line up with the big cancer centers in Boston. I really need solid numbers and references—I can’t present this to my supervisor with just vague summaries. Thanks! Please ensure all findings are supported by concrete data and verifiable sources. I need specific numbers and evidence, not generalizations.",
+      "gold_tools_or_apis": [
+        "Also use Paper Search:search_pubmed",
+        "BRAF inhibitors in melanoma with BioMCP:trial_searcher",
+        "BRAF with BioMCP:gene_getter",
+        "BioMCP:article_getter",
+        "BioMCP:article_searcher",
+        "BioMCP:trial_getter",
+        "BioMCP:trial_locations_getter",
+        "BioMCP:variant_getter",
+        "MA using BioMCP:nci_organization_searcher",
+        "PDF text with Paper Search:download_arxiv",
+        "Paper Search:read_arxiv_paper",
+        "Paper Search:search_arxiv",
+        "Use BioMCP:think",
+        "V600E variant using BioMCP:variant_searcher"
+      ],
+      "category": "Paper Search+BioMCP",
+      "routing_relevance": "MCP server/task benchmark; good for routing by server/tool metadata and multi-step dependencies"
+    },
+    {
+      "id": "Q20",
+      "source": "MCP-Bench",
+      "source_file": "git-ref-repo/mcp-bench/tasks/mcpbench_tasks_multi_2server_runner_format.json",
+      "source_id": "paper_search_biomcp_001",
+      "query": "Hey, I’m prepping a report for my boss on BRAF V600E in melanoma and I’ve hit a wall. I really need to know how common that V600E swap is and what clinical impact it actually has. Then I want a clear rundown of the big Phase III trials testing BRAF inhibitors in melanoma—what each one showed on outcomes, whether any of them saw serious side-effect rates above about 20% (and if so, which drugs were involved), plus the key publications behind each trial. On top of that, I’ve heard whispers about brand-new protein-level tweaks that help tumors resist those drugs—some of it even only on preprint servers in the last few months. Could you dig up the hard numbers, abstracts or summaries (even DOIs or PubMed IDs), and basically give me solid, evidence-backed info I can actually cite? I don’t want just high-level chatter—I need real data for slides. Thanks!",
+      "gold_tools_or_apis": [
+        "BRAF inhibitors via BioMCP:trial_searcher",
+        "BRAF therapy with Paper Search:search_biorxiv",
+        "BRAF with BioMCP:gene_getter",
+        "BioMCP:article_getter",
+        "BioMCP:drug_getter",
+        "BioMCP:variant_getter",
+        "Download the PDF with Paper Search:download_biorxiv",
+        "Extract outcome measures with BioMCP:trial_outcomes_getter",
+        "Extract protocol details with BioMCP:trial_protocol_getter",
+        "Extract text with Paper Search:read_biorxiv_paper",
+        "List all linked publications with BioMCP:trial_references_getter",
+        "Plan the research strategy using BioMCP:think",
+        "Query BioMCP:variant_searcher",
+        "V600E variant with BioMCP:variant_searcher"
+      ],
+      "category": "Paper Search+BioMCP",
+      "routing_relevance": "MCP server/task benchmark; good for routing by server/tool metadata and multi-step dependencies"
+    },
+    {
+      "id": "Q21",
+      "source": "MCP-Bench",
+      "source_file": "git-ref-repo/mcp-bench/tasks/mcpbench_tasks_multi_2server_runner_format.json",
+      "source_id": "wikipedia_nasa_data_000",
+      "query": "I’m working on a little side project for my boss about last week’s space weather chaos. I know we had a mix of solar flares, CMEs, geomagnetic storms, particle events, magnetopause crossings and high-speed streams, but I really want to nail down exactly which single event in each category was the most intense over the past seven days and the precise date it happened. Once we’ve got those peak events, could you pull in the full, raw metrics for each one so I’ve got the hard numbers? Then—just to make sure I’m not shooting in the dark—can you look up each type on Wikipedia (grab the first hit), give me a concise summary (around 200–250 characters) focused on its impact on Earth, extract about five key facts about those impacts, and suggest a few related topics I could dig into? Finally, I need a quick line for each event comparing our numbers to what Wikipedia calls “mild,” “moderate,” or “severe,” so I know if we really saw a monster flare or just a run-of-the-mill storm. I’ve got to present all this with real data and solid sources—no hand-waving—so any help would be awesome. Thanks! Please ensure all findings are supported by concrete data and verifiable sources. I need specific numbers and evidence, not generalizations.",
+      "gold_tools_or_apis": [
+        "Call Wikipedia:extract_key_facts",
+        "Call Wikipedia:get_related_topics",
+        "Call Wikipedia:summarize_article_for_query",
+        "Using NASA Data:get_notifications",
+        "Wikipedia:search_wikipedia"
+      ],
+      "category": "Wikipedia+NASA Data",
+      "routing_relevance": "MCP server/task benchmark; good for routing by server/tool metadata and multi-step dependencies"
+    },
+    {
+      "id": "Q22",
+      "source": "MCP-Bench",
+      "source_file": "git-ref-repo/mcp-bench/tasks/mcpbench_tasks_multi_2server_runner_format.json",
+      "source_id": "wikipedia_nasa_data_001",
+      "query": "I’ve got this astronomy assignment for my research group, and it’s been bugging me: I need to know which near-Earth rocks swung by in the past week, and whether any big solar storms might’ve garbled our telescope data. Basically, I want a rundown of every asteroid that made its closest pass in the last seven days—when it came by, how far it was, how fast it was going, how big it is, and whether it’s officially considered hazardous. Then, for each one, flag if an M-class (or stronger) flare popped off within about a day of its flyby, since that could’ve messed up observations. Once we’ve got that list, I’m especially interested in the three most dangerous candidates—give me a handful of concrete orbit facts for each (like key numbers about their path), plus a roughly 200-word style summary of their discovery history. I’m going to pull all this together into a report, so I really need precise figures and real-source info—not just vague descriptions. Can you dig that up for me?",
+      "gold_tools_or_apis": [
+        "Call NASA Data:get_asteroids_feed",
+        "Call Wikipedia:extract_key_facts",
+        "Call Wikipedia:get_article",
+        "Call Wikipedia:search_wikipedia",
+        "Call Wikipedia:summarize_article_section",
+        "NASA Data:get_asteroid_lookup",
+        "NASA Data:get_solar_flare"
+      ],
+      "category": "Wikipedia+NASA Data",
+      "routing_relevance": "MCP server/task benchmark; good for routing by server/tool metadata and multi-step dependencies"
+    },
+    {
+      "id": "Q23",
+      "source": "MCP-Bench",
+      "source_file": "git-ref-repo/mcp-bench/tasks/mcpbench_tasks_multi_2server_runner_format.json",
+      "source_id": "google_maps_national_parks_000",
+      "query": "Hey, I’m trying to nail down a three-day hiking and waterfall road trip next week, starting from Denver. Ideally I want parks within about a five-hour drive where there’s at least one waterfall viewpoint rated around four stars or higher within roughly 10 km of the park’s core, no active closure alerts, a visitor center open around lunchtime for any last-minute trail info, and at least one campsite with vacancies. Could you pick the two best parks that check all those boxes, tell me the waterfall names and their ratings, point out which campground sits closest to each top waterfall, give me the drive distance and time from Denver, step-by-step directions if we head out right now, and even the elevation at the campsite? I really need actual numbers on ratings, distances, availability—nothing vague—so I can lock in our reservations. Please ensure all findings are supported by concrete data and verifiable sources. I need specific numbers and evidence, not generalizations.",
+      "gold_tools_or_apis": [
+        "CO to the campground using Google Maps:maps_directions",
+        "Google Maps:get_place_details",
+        "Google Maps:maps_distance_matrix",
+        "Google Maps:maps_elevation",
+        "Google Maps:search_nearby",
+        "National Parks:getAlerts",
+        "National Parks:getCampgrounds",
+        "National Parks:getParkDetails",
+        "National Parks:getVisitorCenters",
+        "Use Google Maps:maps_distance_matrix",
+        "Use Google Maps:maps_geocode",
+        "Use National Parks:findParks"
+      ],
+      "category": "Google Maps+National Parks",
+      "routing_relevance": "MCP server/task benchmark; good for routing by server/tool metadata and multi-step dependencies"
+    },
+    {
+      "id": "Q24",
+      "source": "MCP-Bench",
+      "source_file": "git-ref-repo/mcp-bench/tasks/mcpbench_tasks_multi_2server_runner_format.json",
+      "source_id": "google_maps_national_parks_001",
+      "query": "I’ve been itching to head out of Denver for a 5-day camping trip sometime in the next week, but I’m kind of torn on which national park makes the most sense. Ideally it’s no more than about a 200 km drive, offers solid hiking and camping, and has a visitor center where I can catch any talks or events going on that week. I’m also really curious about spending nights at camp spots that vary in elevation—maybe one high ridge, one mid-level meadow and one lower valley—just to see how the landscape and weather change. On top of that, I don’t want to be stuck cooking at every stop, so it’d be awesome to know what town is nearest each campsite and where I can grab a good meal—not just any greasy spoon, but something rated at least four stars, and I need to know how long the drive is and exactly how to get there. In the middle of the trip I’d like to base myself at a visitor center for a couple of nights to break things up and dive into any ranger-led programs. Could you put together a day-by-day itinerary for the upcoming week that does all of that—picks the best park within a reasonable drive from Denver, highlights three campsites that maximize elevation differences, flags any alerts or events happening, finds the nearest town restaurants with ratings and drive times, and then lays out morning/afternoon/evening plans for each of the five days? I really need actual data on this—can’t go wandering off with just vague advice. Whatever you find, please back it up with real numbers or solid sources, okay? Please ensure all findings are supported by concrete data and verifiable sources. I need specific numbers and evidence, not generalizations.",
+      "gold_tools_or_apis": [
+        "Call National Parks:getAlerts",
+        "Call National Parks:getCampgrounds",
+        "Call National Parks:getEvents",
+        "Call National Parks:getParkDetails",
+        "Call National Parks:getVisitorCenters",
+        "Google Maps:maps_directions",
+        "Google Maps:maps_distance_matrix",
+        "National Parks:getParkDetails",
+        "Use Google Maps:maps_distance_matrix",
+        "Use Google Maps:maps_elevation",
+        "Use Google Maps:maps_geocode",
+        "Use Google Maps:maps_reverse_geocode",
+        "Use Google Maps:search_nearby",
+        "Use National Parks:findParks"
+      ],
+      "category": "Google Maps+National Parks",
+      "routing_relevance": "MCP server/task benchmark; good for routing by server/tool metadata and multi-step dependencies"
+    },
+    {
+      "id": "Q25",
+      "source": "MCP-Bench",
+      "source_file": "git-ref-repo/mcp-bench/tasks/mcpbench_tasks_multi_3server_runner_format.json",
+      "source_id": "google_maps_weather_data_national_parks_000",
+      "query": "Hey there—I’m gearing up for a quick three-day camping getaway to Yosemite from San Jose and, to be honest, I’m feeling a bit swamped by all the options and details. I’d love to zero in on the three best campgrounds that actually have real comforts—think showers, drinking water, maybe even Wi-Fi—are definitely open on my dates and aren’t under any alerts or closures right now. Once I’ve got that shortlist, can you help me figure out roughly how far and how long it takes to drive from San Jose to each of those spots? I’m planning to settle into one as my “base camp,” so for that primary site it’d be great to know the nearest visitor center’s hours and exactly how to get there—like turn-by-turn directions, plus the distance and travel time. Also, what’s the elevation at that main campground? Since I want to pack smart, I really need a solid three-day weather outlook for Yosemite—nothing vague, just the highs, lows and general conditions for the next few days. And, just in case I run out of snacks or cooking supplies, is there a grocery or convenience store within about five kilometers of that first campground? I can’t just wing this trip, so any real numbers or solid reference points you can dig up would be awesome—no vague guesses, please. Thanks! Please ensure all findings are supported by concrete data and verifiable sources. I need specific numbers and evidence, not generalizations.",
+      "gold_tools_or_apis": [
+        "Google Maps+Weather Data+National Parks"
+      ],
+      "category": "Google Maps+Weather Data+National Parks",
+      "routing_relevance": "MCP server/task benchmark; good for routing by server/tool metadata and multi-step dependencies"
+    },
+    {
+      "id": "Q26",
+      "source": "MCP-Bench",
+      "source_file": "git-ref-repo/mcp-bench/tasks/mcpbench_tasks_multi_3server_runner_format.json",
+      "source_id": "google_maps_weather_data_national_parks_001",
+      "query": "I’m trying to plan a week-long hiking and camping loop that starts and ends in Denver, and I’m hoping you can really nerd out with me on the details. I want to hit a few of the best parks in Colorado, Utah or Wyoming that have both solid trails and campgrounds, then narrow it down to the three closest ones by drive time so I’m not losing half my day on the road. From there, I’d love a day-by-day agenda for the next seven days that not only tells me which park I’m at and when, but also flags any active alerts or if there’s more than a 50% chance of rain that day (so we could switch things around if it looks dicey). On top of that, I need to know what the visitor center hours are, where I can actually secure a campsite or catch an event, plus a quick weather snapshot each morning and night. If there’s a nearby town or landmark, I want to know about hotels in, say, a 20 km radius too—just in case I decide to splurge one night. And for each driving leg, could you give me the distance, drive time, a rough idea of elevation change, and turn-by-turn directions? I really need actual numbers backed up by real data—no hand-wavy guesses—because I’m sharing this with friends who expect concrete facts. Thanks!",
+      "gold_tools_or_apis": [
+        "Google Maps+Weather Data+National Parks"
+      ],
+      "category": "Google Maps+Weather Data+National Parks",
+      "routing_relevance": "MCP server/task benchmark; good for routing by server/tool metadata and multi-step dependencies"
+    },
+    {
+      "id": "Q27",
+      "source": "MCP-Bench",
+      "source_file": "git-ref-repo/mcp-bench/tasks/mcpbench_tasks_multi_3server_runner_format.json",
+      "source_id": "hugging_face_paper_search_wikipedia_001",
+      "query": "I’m working on a project where I need to pick the very best news‐article classifier out there right now—specifically the one built for that 4-category news dataset (world, sports, business, tech). My boss wants me to find a publicly available, open-source model that has the highest F1 score, and then see if any fresh paper from the last three months has pushed the bar another 5 percentage points higher. If a recent research write-up really beats the community model by at least 5 points in F1, I’d like to know what architectural tweak or training trick they used so I can apply it to the top model we found. If not, we’ll just roll with that open-source champion as is. Also, I need a quick, plain-English refresher on what a micro-averaged F1 score actually means and how it’s calculated—got to explain it clearly to stakeholders. Could you dig into this for me, pull together the model ID and its reported F1, track down any paper from roughly the past three months with its own F1, compare them, and then recommend next steps? Really need solid numbers and clear references so I’m not just guessing. Thanks! Please ensure all findings are supported by concrete data and verifiable sources. I need specific numbers and evidence, not generalizations.",
+      "gold_tools_or_apis": [
+        "Call Hugging Face:get-dataset-info",
+        "Call Paper Search:download_arxiv",
+        "Hugging Face:get-model-info",
+        "Paper Search:search_arxiv",
+        "Then call Paper Search:read_arxiv_paper",
+        "Use Hugging Face:search-datasets",
+        "Use Hugging Face:search-models",
+        "Use Wikipedia:extract_key_facts",
+        "Use Wikipedia:get_summary"
+      ],
+      "category": "Hugging Face+Paper Search+Wikipedia",
+      "routing_relevance": "MCP server/task benchmark; good for routing by server/tool metadata and multi-step dependencies"
+    },
+    {
+      "id": "Q28",
+      "source": "MCP-Bench",
+      "source_file": "git-ref-repo/mcp-bench/tasks/mcpbench_tasks_multi_3server_runner_format.json",
+      "source_id": "hugging_face_paper_search_wikipedia_003",
+      "query": "Hey, I’m working on a little side project where I need a solid German→English translation model, and I’ve heard the Helsinki team has some of the best open-source options—probably around five main candidates. I’d love to figure out which one actually tops the leaderboard in terms of BLEU score on the model hub, then dig into the team’s original pre-print to see what BLEU they reported there and exactly which test set they used. I’m also a bit fuzzy on how translation quality is typically measured—could you pull out three key facts about evaluation metrics from that big online encyclopedia article on machine translation? And one more thing: are there any community-run live demos for the model that wins? I’d like to know what language pairs they support and whether they mention any real-time latency numbers. I’m putting together a report for my manager, so I really need the exact BLEU figures, test-set names, and solid source references—no just gut feelings. Thanks!",
+      "gold_tools_or_apis": [
+        "Hugging Face+Paper Search+Wikipedia"
+      ],
+      "category": "Hugging Face+Paper Search+Wikipedia",
+      "routing_relevance": "MCP server/task benchmark; good for routing by server/tool metadata and multi-step dependencies"
+    },
+    {
+      "id": "Q29",
+      "source": "MCP-Bench",
+      "source_file": "git-ref-repo/mcp-bench/tasks/mcpbench_tasks_multi_3server_runner_format.json",
+      "source_id": "paper_search_call_for_papers_wikipedia_000",
+      "query": "Hey there! I’m working on a project to build a real-time pandemic outbreak detector, and I want to see what cutting-edge machine learning tricks have popped up in the last three months. Would you mind digging up about the top five preprint studies from the usual archives plus at least three peer-reviewed papers (if any of the archives don’t have enough, maybe grab a few extras via Google Scholar)? Then could you read through them and give me roughly a 150-word summary of each paper’s main algorithmic idea? Once you’ve got those, I’d love a list of the distinct ML approaches they’re using, a quick encyclopedia-style blurb on each technique, and a heads-up on any conferences or workshops in the next week to month where these methods will be featured. I really need concrete, source-backed details—no high-level fluff—so I can show solid evidence to my team. Thanks!",
+      "gold_tools_or_apis": [
+        "Wikipedia:get_summary"
+      ],
+      "category": "Paper Search+Call for Papers+Wikipedia",
+      "routing_relevance": "MCP server/task benchmark; good for routing by server/tool metadata and multi-step dependencies"
+    },
+    {
+      "id": "Q30",
+      "source": "MCP-Bench",
+      "source_file": "git-ref-repo/mcp-bench/tasks/mcpbench_tasks_multi_3server_runner_format.json",
+      "source_id": "paper_search_call_for_papers_wikipedia_002",
+      "query": "I’m prepping for a journal club talk on CRISPR gene editing and keep hearing about new ways to predict Cas9 off-target effects with machine learning. I’ve been hopping between preprint archives, a big biomedical literature database and academic search engines, but I’m not confident I’ve caught all the important methods. Could you pull together roughly twenty of the most recent papers—get the full texts where you can and give me about a 150-word summary of each one’s off-target prediction approach (models, key features, that sort of thing)? For the ones that only have abstracts available, just boil down the methodology in around a hundred words. Once that’s done, let me know which algorithms (deep nets, random forests, etc.) keep popping up across multiple studies and which show up only once. Then I’d love a roughly 200-word overview from Wikipedia’s “Off-target Effects” section so I can frame the background. And finally, are there any CRISPR or genome-editing conferences coming up in the next three months with calls for papers mentioning off-target prediction or machine learning? Just send me their names, dates, and any topic descriptions they list. I really need real numbers, citations or links—no guesswork—since I’ll have to defend everything in front of the group. Please ensure all findings are supported by concrete data and verifiable sources. I need specific numbers and evidence, not generalizations.",
+      "gold_tools_or_apis": [
+        "Paper Search+Call for Papers+Wikipedia"
+      ],
+      "category": "Paper Search+Call for Papers+Wikipedia",
+      "routing_relevance": "MCP server/task benchmark; good for routing by server/tool metadata and multi-step dependencies"
+    },
+    {
+      "id": "Q31",
+      "source": "StableToolBench",
+      "source_file": "git-ref-repo/StableToolBench/solvable_queries/test_instruction/G1_instruction.json",
+      "source_id": "588",
+      "query": "I'm a football enthusiast and I want to know more about Lionel Messi's career. Can you provide me with information about Messi's clubs, managers, teammates, and referees? I'm also curious about any notable transfers he has made.",
+      "gold_tools_or_apis": [
+        [
+          "TheClique",
+          "Transfermarkt search"
+        ],
+        [
+          "TheClique",
+          "Transfermarkt details"
+        ]
+      ],
+      "category": "Data",
+      "routing_relevance": "API/tool-use query with explicit relevant API labels"
+    },
+    {
+      "id": "Q32",
+      "source": "StableToolBench",
+      "source_file": "git-ref-repo/StableToolBench/solvable_queries/test_instruction/G1_instruction.json",
+      "source_id": "608",
+      "query": "I'm a fan of the streamer 'gmhikaru' on Kick.com and I want to explore their channel. Can you provide me with the channel clips and the channel details? I'm eager to learn more about their content.",
+      "gold_tools_or_apis": [
+        [
+          "Kick.com API | Kick API",
+          "Get Channel Clips"
+        ],
+        [
+          "Kick.com API | Kick API",
+          "Get Channel Details"
+        ]
+      ],
+      "category": "Data",
+      "routing_relevance": "API/tool-use query with explicit relevant API labels"
+    },
+    {
+      "id": "Q33",
+      "source": "StableToolBench",
+      "source_file": "git-ref-repo/StableToolBench/solvable_queries/test_instruction/G1_instruction.json",
+      "source_id": "1073",
+      "query": "I want to plan a surprise birthday party for my friend. Can you suggest popular sites and main keywords for the search query 'birthday party ideas'? I want to gather inspiration and plan a memorable event.",
+      "gold_tools_or_apis": [
+        [
+          "Keyword Analysis",
+          "PopularSitesForQuery"
+        ],
+        [
+          "Keyword Analysis",
+          "QueryKeywords"
+        ]
+      ],
+      "category": "Data",
+      "routing_relevance": "API/tool-use query with explicit relevant API labels"
+    },
+    {
+      "id": "Q34",
+      "source": "StableToolBench",
+      "source_file": "git-ref-repo/StableToolBench/solvable_queries/test_instruction/G1_instruction.json",
+      "source_id": "1572",
+      "query": "I'm curious about the credibility and popularity of different media sources. Can you fetch me the statistics on media sources? Additionally, I'm interested in reading the top 50 startup news articles from the last month. Thank you for your help!",
+      "gold_tools_or_apis": [
+        [
+          "public-url-share",
+          "Media sources statistics"
+        ],
+        [
+          "public-url-share",
+          "Top 50 startups news from the last month"
+        ]
+      ],
+      "category": "Media",
+      "routing_relevance": "API/tool-use query with explicit relevant API labels"
+    },
+    {
+      "id": "Q35",
+      "source": "StableToolBench",
+      "source_file": "git-ref-repo/StableToolBench/solvable_queries/test_instruction/G1_instruction.json",
+      "source_id": "1856",
+      "query": "I'm planning to place some bets on today's soccer matches. Can you provide me with the best goal prediction, the best 2 sign prediction, and the best 1 sign prediction? Additionally, I would like to know if there are any good odds available for betting. Please include the country name, league name, team names, bet, bet quote, and match date in the response.",
+      "gold_tools_or_apis": [
+        [
+          "Morpheus Predictions ",
+          "Best BestGoal"
+        ],
+        [
+          "Morpheus Predictions ",
+          "Best Sign 2"
+        ],
+        [
+          "Morpheus Predictions ",
+          "Best Sign 1"
+        ],
+        [
+          "Morpheus Predictions ",
+          "Best Quote"
+        ]
+      ],
+      "category": "Sports",
+      "routing_relevance": "API/tool-use query with explicit relevant API labels"
+    },
+    {
+      "id": "Q36",
+      "source": "StableToolBench",
+      "source_file": "git-ref-repo/StableToolBench/solvable_queries/test_instruction/G1_instruction.json",
+      "source_id": "2121",
+      "query": "I'm planning a golf tournament and I need information about the players. Can you provide me with the world rankings of the top players for the year 2022? Additionally, include the FedExCup points earned by these players and their recent scorecards.",
+      "gold_tools_or_apis": [
+        [
+          "Live Golf Data",
+          "World Ranking"
+        ],
+        [
+          "Live Golf Data",
+          "points"
+        ],
+        [
+          "Live Golf Data",
+          "scorecards"
+        ]
+      ],
+      "category": "Sports",
+      "routing_relevance": "API/tool-use query with explicit relevant API labels"
+    },
+    {
+      "id": "Q37",
+      "source": "StableToolBench",
+      "source_file": "git-ref-repo/StableToolBench/solvable_queries/test_instruction/G1_instruction.json",
+      "source_id": "2144",
+      "query": "I am organizing a Formula 1 themed party and I need some quotes by Daniel Ricciardo to put up as decorations. Can you fetch a specific quote by its ID? The driver ID is 'ricciardo' and the quote ID is '59'. Additionally, I would like to display a photo of Daniel Ricciardo along with his ID. Can you provide that information as well?",
+      "gold_tools_or_apis": [
+        [
+          "F1 drivers quotes",
+          "Driver's quotes by ID"
+        ],
+        [
+          "F1 drivers quotes",
+          "Author with his photo"
+        ]
+      ],
+      "category": "Sports",
+      "routing_relevance": "API/tool-use query with explicit relevant API labels"
+    },
+    {
+      "id": "Q38",
+      "source": "StableToolBench",
+      "source_file": "git-ref-repo/StableToolBench/solvable_queries/test_instruction/G1_instruction.json",
+      "source_id": "2213",
+      "query": "My company is hosting a rugby event and we need to provide pre-match form information to the participants. Can you fetch the pre-match form for a specific rugby match? We would also like to see the incidents that occurred during the match.",
+      "gold_tools_or_apis": [
+        [
+          "RugbyAPI2",
+          "PreMatchForm"
+        ],
+        [
+          "RugbyAPI2",
+          "MatchIncidents"
+        ]
+      ],
+      "category": "Sports",
+      "routing_relevance": "API/tool-use query with explicit relevant API labels"
+    },
+    {
+      "id": "Q39",
+      "source": "ToolBench",
+      "source_file": "git-ref-repo/ToolBench/data_example/instruction/G1_query.json",
+      "source_id": "1",
+      "query": "I'm working on a logistics project for my company and need to check the health of the SQUAKE API. Can you verify the API health by calling the 'Checkhealth' API endpoint? Additionally, I would like to retrieve the list of projects using the 'Projects' API endpoint.",
+      "gold_tools_or_apis": [
+        [
+          "SQUAKE",
+          "Checkhealth"
+        ],
+        [
+          "SQUAKE",
+          "Projects"
+        ]
+      ],
+      "category": "Logistics",
+      "routing_relevance": "API routing/use query with explicit relevant APIs"
+    },
+    {
+      "id": "Q40",
+      "source": "ToolBench",
+      "source_file": "git-ref-repo/ToolBench/data_example/instruction/G1_query.json",
+      "source_id": "2",
+      "query": "As a sustainability enthusiast, I'm interested in exploring the projects available on the SQUAKE platform. Could you fetch the list of projects using the 'Projects' API? Additionally, I would like to check the health of the SQUAKE API using the 'Checkhealth' API.",
+      "gold_tools_or_apis": [
+        [
+          "SQUAKE",
+          "Checkhealth"
+        ],
+        [
+          "SQUAKE",
+          "Projects"
+        ]
+      ],
+      "category": "Logistics",
+      "routing_relevance": "API routing/use query with explicit relevant APIs"
+    },
+    {
+      "id": "Q41",
+      "source": "ToolBench",
+      "source_file": "git-ref-repo/ToolBench/data_example/instruction/G1_query.json",
+      "source_id": "3",
+      "query": "I'm organizing a sustainability event for my community and would like to showcase various projects promoting eco-friendly practices. Could you provide me with a list of projects available on the SQUAKE platform using the 'Projects' API? Additionally, I would like to check the health of the SQUAKE API using the 'Checkhealth' API.",
+      "gold_tools_or_apis": [
+        [
+          "SQUAKE",
+          "Checkhealth"
+        ],
+        [
+          "SQUAKE",
+          "Projects"
+        ]
+      ],
+      "category": "Logistics",
+      "routing_relevance": "API routing/use query with explicit relevant APIs"
+    },
+    {
+      "id": "Q42",
+      "source": "ToolBench",
+      "source_file": "git-ref-repo/ToolBench/data_example/instruction/G1_query.json",
+      "source_id": "4",
+      "query": "My friend and I are passionate about sustainability and want to contribute to projects that promote eco-friendly practices. Can you fetch the list of projects available on the SQUAKE platform using the 'Projects' API? Additionally, I would like to check the health of the SQUAKE API using the 'Checkhealth' API.",
+      "gold_tools_or_apis": [
+        [
+          "SQUAKE",
+          "Checkhealth"
+        ],
+        [
+          "SQUAKE",
+          "Projects"
+        ]
+      ],
+      "category": "Logistics",
+      "routing_relevance": "API routing/use query with explicit relevant APIs"
+    },
+    {
+      "id": "Q43",
+      "source": "ToolBench",
+      "source_file": "git-ref-repo/ToolBench/data_example/instruction/G1_query.json",
+      "source_id": "5",
+      "query": "I need to track a package sent through Correo Argentino. The tracking code is 'ABC123'. Please create a task to get the history of the package and provide me with the task ID. I will use the task ID to retrieve the result later.",
+      "gold_tools_or_apis": [
+        [
+          "Transportistas de Argentina",
+          "/tracking/correo_argentino/create_task/:service/:tracking_code"
+        ],
+        [
+          "Transportistas de Argentina",
+          "/tracking/correo_argentino/result_task/:task_id"
+        ]
+      ],
+      "category": "Logistics",
+      "routing_relevance": "API routing/use query with explicit relevant APIs"
+    },
+    {
+      "id": "Q44",
+      "source": "BFCL",
+      "source_file": "git-ref-repo/gorilla/berkeley-function-call-leaderboard/bfcl_eval/data/BFCL_v4_multiple.json",
+      "source_id": "multiple_0",
+      "query": "Can I find the dimensions and properties of a triangle, if I know its three sides are 5 units, 4 units and 3 units long?",
+      "gold_tools_or_apis": [
+        "triangle_properties.get",
+        "circle_properties.get"
+      ],
+      "category": "BFCL_v4_multiple",
+      "routing_relevance": "Function-selection query with distractor/multiple function candidates"
+    },
+    {
+      "id": "Q45",
+      "source": "BFCL",
+      "source_file": "git-ref-repo/gorilla/berkeley-function-call-leaderboard/bfcl_eval/data/BFCL_v4_multiple.json",
+      "source_id": "multiple_1",
+      "query": "Calculate the area of a triangle, given the lengths of its three sides: 3, 4, and 5.",
+      "gold_tools_or_apis": [
+        "math.triangle_area_heron",
+        "math.circle_area",
+        "math.triangle_area_base_height"
+      ],
+      "category": "BFCL_v4_multiple",
+      "routing_relevance": "Function-selection query with distractor/multiple function candidates"
+    },
+    {
+      "id": "Q46",
+      "source": "BFCL",
+      "source_file": "git-ref-repo/gorilla/berkeley-function-call-leaderboard/bfcl_eval/data/BFCL_v4_irrelevance.json",
+      "source_id": "irrelevance_0",
+      "query": "Calculate the area of a triangle given the base is 10 meters and height is 5 meters.",
+      "gold_tools_or_apis": [
+        "determine_body_mass_index"
+      ],
+      "category": "BFCL_v4_irrelevance",
+      "routing_relevance": "Irrelevance/no-call style query useful for avoiding false-positive routing"
+    },
+    {
+      "id": "Q47",
+      "source": "BFCL",
+      "source_file": "git-ref-repo/gorilla/berkeley-function-call-leaderboard/bfcl_eval/data/BFCL_v4_irrelevance.json",
+      "source_id": "irrelevance_1",
+      "query": "Solve the quadratic equation with coefficients a = 1, b = 2, and c = 3.",
+      "gold_tools_or_apis": [
+        "math.sum"
+      ],
+      "category": "BFCL_v4_irrelevance",
+      "routing_relevance": "Irrelevance/no-call style query useful for avoiding false-positive routing"
+    },
+    {
+      "id": "Q48",
+      "source": "ToolRet",
+      "source_file": "HuggingFace:mangopy/ToolRet-Queries/toolbench",
+      "source_id": "toolbench_query_808",
+      "query": "I want to check the status of my recent order. Can you fetch the details of my order, including the order status and delivery date?",
+      "gold_tools_or_apis": [
+        "Onboarding_Project_v3_Get_User_Orders",
+        "Onboarding_Project_v3_Get_Order"
+      ],
+      "category": "web",
+      "routing_relevance": "Pure tool-retrieval benchmark row with relevant tool labels"
+    },
+    {
+      "id": "Q49",
+      "source": "ToolRet",
+      "source_file": "HuggingFace:mangopy/ToolRet-Queries/toollens",
+      "source_id": "toolLens_query_0",
+      "query": "I'm setting up a learning management system for my online courses and need information based on the coordinates 34.0522,-118.2437.",
+      "gold_tools_or_apis": [
+        "/topic/{topic}",
+        "Search/Autocomplete API",
+        "getQuestionsandAnswers"
+      ],
+      "category": "web",
+      "routing_relevance": "Pure tool-retrieval benchmark row with relevant tool labels"
+    },
+    {
+      "id": "Q50",
+      "source": "ToolRet",
+      "source_file": "HuggingFace:mangopy/ToolRet-Queries/metatool",
+      "source_id": "metatool_which_query_0",
+      "query": "I'm planning to take my kids to the park tomorrow. Can you provide the air quality forecast for zip code 98101?",
+      "gold_tools_or_apis": [
+        "airqualityforeast"
+      ],
+      "category": "customized",
+      "routing_relevance": "Pure tool-retrieval benchmark row with relevant tool labels"
+    }
+  ]
+}
