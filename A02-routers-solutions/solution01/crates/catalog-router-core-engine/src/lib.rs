@@ -160,6 +160,15 @@ pub fn validate_query_record_input(
                 message: format!("query {} has empty text", query.id),
             });
         }
+        if query
+            .required_tool_ids
+            .iter()
+            .any(|tool_id| tool_id.trim().is_empty())
+        {
+            return Err(RouterTypedErrorKind::QueryValidationFailed {
+                message: format!("query {} has an invalid required tool id", query.id),
+            });
+        }
         if query.should_route && query.required_tool_ids.is_empty() {
             return Err(RouterTypedErrorKind::QueryValidationFailed {
                 message: format!("query {} should route but has no required tools", query.id),
@@ -637,6 +646,23 @@ mod tests {
         assert!(ranked[0]
             .capability_match
             .contains(&"parameter".to_string()));
+    }
+
+    #[test]
+    fn query_required_tool_ids_reject_empty_values() {
+        let error = validate_query_record_input(&[RouteQueryInputData {
+            id: "query-empty-tool".to_string(),
+            query: "send message".to_string(),
+            required_tool_ids: vec!["".to_string()],
+            should_route: true,
+            graded_relevance: vec![],
+            source_expected_tools: vec![],
+            failure_modes: vec![],
+            unknown_metadata: BTreeMap::new(),
+        }])
+        .expect_err("empty required tool ids should fail validation");
+
+        assert!(error.to_string().contains("invalid required tool id"));
     }
 
     #[test]

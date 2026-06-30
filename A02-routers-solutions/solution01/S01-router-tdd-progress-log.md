@@ -2,7 +2,7 @@
 
 - Task: Implement router MVP executable specs
 - Created: 2026-06-30 19:10:59Z
-- Updated: 2026-06-30 21:12:41Z
+- Updated: 2026-06-30 21:47:55Z
 - Current Phase: Green
 - Status: active
 
@@ -594,3 +594,132 @@ Wire explicit OpenAI judge adapter
 - cargo clippy --workspace --all-targets -- -D warnings: passing
 - npm test && npm run build: passing - 8 UI tests plus Vite build
 - npm run tauri:build: passing - app and dmg bundles produced
+
+### Session: 2026-06-30 21:28:47Z
+
+#### Current Phase: Green
+
+#### Tests Written:
+- filters bundled benchmark queries before routing: passing - searches bundled picker and routes query-14 text
+- runs CPU preview with selected benchmark query and router mode: passing - asserts five candidate cards and skipped judge stage
+- validates judge key and runs judged route: passing - asserts completed catalog CPU judge and evidence stages
+
+#### Implementation Progress:
+- ui/src/app.ts: added querySearchTextValue, routeProgressStagesList, searchable benchmark picker, progress stage renderer, and risk field in evidence cards
+- ui/src/app.test.ts: added search route test, five-card assertions, and progress status helper
+- ui/src/styles.css: added responsive route progress strip and four-column candidate evidence fields
+
+#### Current Focus:
+Close UI query search, progress stages, and five-card evidence assertions
+
+#### Next Steps:
+- Implement judged benchmark scoring so should_route=true requires judged selection and should_route=false requires abstain.
+- Audit final executable spec requirement-by-requirement after judged scoring is covered.
+- Commit and push the UI evidence slice when user asks for a checkpoint.
+
+#### Context Notes:
+- Codebase-memory scan /tmp/codex-code-intel/codebase-memory/accio-tools-20260701-024923 found getFilteredQueriesList, renderRouteActionPanel, renderCandidateEvidenceCards, and createRouterWorkbenchApp.
+- CodeGraphContext direct DB /tmp/codex-code-intel/codegraphcontext/solution01-ui-slice-20260701/ladybugdb.sqlite found getFilteredQueriesList at ui/src/app.ts:689, renderRouteProgressStagesList at ui/src/app.ts:1064, and renderCandidateEvidenceCards at ui/src/app.ts:1112.
+
+#### Performance/Metrics:
+- cargo fmt --all --check: passing
+- cargo test --workspace: passing - 29 Rust tests plus doctests
+- cargo clippy --workspace --all-targets -- -D warnings: passing
+- npm --prefix ui test: passing - 9 UI tests
+- npm --prefix ui run build: passing
+- npm --prefix ui run tauri:build: passing - app and dmg bundles produced
+
+### Session: 2026-06-30 21:47:55Z
+
+#### Current Phase: Green
+
+#### Tests Written:
+- cli_rejects_judged_route_without_key: passing - judged route requires an API key and points users to CPU preview without one
+- query_required_tool_ids_reject_empty_values: passing - query fixtures reject blank required tool ids before metrics or routing
+- router workbench activity assertions: passing - UI surfaces command names, evaluation pack metadata, and benchmark failure buckets
+
+#### Implementation Progress:
+- crates/router-cli-command-surface/src/main.rs: route-tools-for-query now fails fast without --api-key while run-cpu-preview-only stays available
+- crates/catalog-router-core-engine/src/lib.rs: query validation now rejects empty required_tool_ids values
+- ui/src/app.ts: activity log entries include backend command names, the evaluation pack card shows source/schema/duplicate-id status, and benchmark health shows full metric evidence
+- ui/src/app.test.ts: covered command-name visibility, evaluation pack metadata, and benchmark gold failure status
+
+#### Current Focus:
+Close final audit gaps before saving the checkpoint commit
+
+#### Next Steps:
+- Run the full solution01 verification gate.
+- Stage, commit, and push the checkpoint when the gate passes.
+
+#### Context Notes:
+- The audited no-key branch is intentionally split: CPU preview remains enabled without a judge key, while judged route requires a validated key or explicit CLI --api-key.
+- Benchmark gold status no longer treats CPU preview as judged success; unjudged preview is reported explicitly.
+
+#### Performance/Metrics:
+- focused cargo tests: passing - catalog-router-core-engine and router-cli-command-surface
+- npm --prefix ui test: passing - 9 UI tests
+- npm --prefix ui run build: passing
+
+### Session: 2026-06-30 21:37:49Z
+
+#### Current Phase: Green
+
+#### Tests Written:
+- judged_scoring_requires_selected_required_tool: passing - required tool in CPU top five still fails when judge selects wrong top one
+- judged_scoring_scores_abstention_gold: passing - should_route=false passes only when judge abstains
+- metrics_report_counts_mock_judged_outcomes: passing - aggregate report exposes judged_route_accuracy separate from Recall@K
+
+#### Implementation Progress:
+- crates/benchmark-eval-metrics-runner/src/lib.rs: added BenchmarkRouteOutcomeData, BenchmarkRouteOutcomeKindData, score_benchmark_route_outcome, judged_route_accuracy, and mock-judge aggregate scoring
+- src/lib.rs: exported judged_route_accuracy in route evidence reports and tests
+- ui/src/types.ts and ui/src/app.ts: added judged_route_accuracy to typed metrics and benchmark health rendering
+
+#### Current Focus:
+Implement judged benchmark scoring semantics
+
+#### Next Steps:
+- Run final requirement-by-requirement completion audit against S01-mvp-router-executable-specs.md.
+- Fix any audit gaps, especially production export gating and final benchmark health wording if evidence says they remain.
+- Commit and push the accumulated UI/scoring slice when user asks for a checkpoint.
+
+#### Context Notes:
+- CodeGraphContext DB /tmp/codex-code-intel/codegraphcontext/solution01-scoring-after-20260701/ladybugdb.sqlite found score_benchmark_route_outcome at benchmark-eval-metrics-runner/src/lib.rs:222.
+- codebase-memory scan /tmp/codex-code-intel/codebase-memory/accio-tools-20260701-030718 found score_benchmark_route_outcome, select_mock_judge_tool_id, and create_failure_bucket_value.
+
+#### Performance/Metrics:
+- cargo fmt --all --check: passing
+- cargo test --workspace: passing - 32 Rust tests plus doctests
+- cargo clippy --workspace --all-targets -- -D warnings: passing
+- npm --prefix ui test: passing - 9 UI tests
+- npm --prefix ui run build: passing
+- npm --prefix ui run tauri:build: passing - app and dmg bundles produced
+
+### Session: 2026-06-30 21:40:27Z
+
+#### Current Phase: Green
+
+#### Tests Written:
+- runs metrics and downloads evidence artifacts: passing - CPU preview export marks benchmark gold as unjudged_cpu_preview instead of matched_required_tool
+
+#### Implementation Progress:
+- ui/src/app.ts: createBenchmarkGoldMatch now requires judge decision for matched_required_tool/correct_abstain and labels CPU preview as unjudged_cpu_preview
+- ui/src/app.test.ts: updated evidence export expectation for unjudged CPU preview
+
+#### Current Focus:
+Align UI benchmark gold match with judged scoring semantics
+
+#### Next Steps:
+- Run final requirement-by-requirement completion audit against S01-mvp-router-executable-specs.md.
+- Fix any audit gaps found by source-backed evidence.
+- Commit and push the accumulated UI/scoring slice when user asks for a checkpoint.
+
+#### Context Notes:
+- This removes the previous benchmark gold fallback from CPU top candidate to judged selected_tool_id.
+
+#### Performance/Metrics:
+- cargo fmt --all --check: passing
+- cargo test --workspace: passing - 32 Rust tests plus doctests
+- cargo clippy --workspace --all-targets -- -D warnings: passing
+- npm --prefix ui test: passing - 9 UI tests
+- npm --prefix ui run build: passing
+- npm --prefix ui run tauri:build: passing - app and dmg bundles produced

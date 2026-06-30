@@ -102,6 +102,7 @@ export interface MetricReportOutputData {
   mrr: number;
   ndcg_at_10: number;
   abstention_accuracy: number;
+  judged_route_accuracy: number;
   average_selected_candidate_count: number;
   token_reduction_estimate: number;
   router_mode: RouterModeNameData;

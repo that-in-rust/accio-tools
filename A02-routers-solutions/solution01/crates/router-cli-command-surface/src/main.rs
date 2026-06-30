@@ -167,13 +167,27 @@ fn create_route_request_data(
             .ok_or_else(|| RouterTypedErrorKind::QueryValidationFailed {
                 message: "route commands require --query".to_string(),
             })?;
+    let api_key = if include_key {
+        Some(
+            options
+                .api_key
+                .as_ref()
+                .filter(|value| !value.trim().is_empty())
+                .cloned()
+                .ok_or_else(|| RouterTypedErrorKind::JudgeConfigurationFailed {
+                    message: "route-tools-for-query requires --api-key; use run-cpu-preview-only without a key".to_string(),
+                })?,
+        )
+    } else {
+        None
+    };
     Ok(RouteToolsRequestData {
         dataset_path: options.dataset_path.clone(),
         catalog_tools: None,
         query,
         recent_context: options.recent_context.clone(),
         router_mode: options.router_mode,
-        api_key: include_key.then(|| options.api_key.clone()).flatten(),
+        api_key,
     })
 }
 
@@ -244,6 +258,24 @@ mod tests {
         assert!(output.contains("\"route_label\": \"judged_route\""));
         assert!(output.contains("\"decision\": \"select_tool\""));
         assert!(output.contains("\"selected_tool_id\": \"tool.channel\""));
+    }
+
+    #[test]
+    fn cli_rejects_judged_route_without_key() {
+        let directory = tempdir().expect("temp dir should exist");
+        write_route_fixture_pack(directory.path());
+        let error = run_cli_command_surface(vec![
+            "route-tools-for-query".to_string(),
+            "--dataset".to_string(),
+            directory.path().display().to_string(),
+            "--query".to_string(),
+            "send message to channel".to_string(),
+        ])
+        .expect_err("judged route should require a key");
+
+        assert!(error
+            .to_string()
+            .contains("route-tools-for-query requires --api-key"));
     }
 
     #[test]

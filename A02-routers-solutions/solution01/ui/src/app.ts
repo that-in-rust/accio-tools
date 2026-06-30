@@ -23,6 +23,25 @@ interface RouterWorkbenchOptions {
 type QuerySourceModeData = "benchmark" | "custom";
 type UploadedSourceModeData = "bundled" | "custom";
 type AsyncActionStatusData = "idle" | "running" | "complete" | "failed";
+type RouteProgressFlowData =
+  | "idle"
+  | "preview_running"
+  | "preview_complete"
+  | "preview_failed"
+  | "judged_running"
+  | "judged_complete"
+  | "judged_failed";
+type RouteProgressStageStatusData =
+  | "waiting"
+  | "running"
+  | "complete"
+  | "skipped"
+  | "failed";
+
+interface RouteProgressStageData {
+  label: string;
+  status: RouteProgressStageStatusData;
+}
 
 interface RouterWorkbenchStateData {
   apiKey: string;
@@ -38,8 +57,10 @@ interface RouterWorkbenchStateData {
   catalogSourceModeName: UploadedSourceModeData;
   queryPackSourceModeName: UploadedSourceModeData;
   selectedQueryId: string;
+  querySearchTextValue: string;
   customQuery: string;
   recentContext: string;
+  routeProgressStagesList: RouteProgressStageData[];
   tools: ToolCatalogRecordData[];
   queries: RouteQueryInputData[];
   lastRouteRequest: RouteToolsRequestData | null;
@@ -98,8 +119,10 @@ function createInitialStateData(): RouterWorkbenchStateData {
     catalogSourceModeName: "bundled",
     queryPackSourceModeName: "bundled",
     selectedQueryId: "",
+    querySearchTextValue: "",
     customQuery: "",
     recentContext: "",
+    routeProgressStagesList: createRouteProgressStagesList("idle"),
     tools: [],
     queries: [],
     lastRouteRequest: null,
@@ -136,6 +159,7 @@ async function loadEvaluationPackFiles(
     state.catalogSourceModeName = "bundled";
     state.queryPackSourceModeName = "bundled";
     state.selectedQueryId = state.queries[0]?.id ?? "";
+    state.querySearchTextValue = "";
     state.packStatus = "complete";
     pushActivityLogEntry(
       state,
@@ -189,6 +213,20 @@ function bindWorkbenchEventHandlers(
     "change",
     (event) => {
       state.selectedQueryId = (event.target as HTMLSelectElement).value;
+      render();
+    },
+  );
+
+  queryElementById<HTMLInputElement>(root, "benchmark-query-search")?.addEventListener(
+    "input",
+    (event) => {
+      state.querySearchTextValue = (event.target as HTMLInputElement).value;
+      const filteredQueries = getFilteredQueriesList(state);
+      state.selectedQueryId = filteredQueries.some(
+        (query) => query.id === state.selectedQueryId,
+      )
+        ? state.selectedQueryId
+        : filteredQueries[0]?.id ?? "";
       render();
     },
   );
@@ -311,6 +349,7 @@ async function loadCustomQueryFile(
     state.errorMessage = "";
     state.queries = normalizeRouteQueryRecords(await parseUploadedJsonFile(file));
     state.selectedQueryId = state.queries[0]?.id ?? "";
+    state.querySearchTextValue = "";
     state.querySource = "benchmark";
     state.queryPackSourceModeName = "custom";
     state.uploadStatusMessage = `Loaded custom query file with ${state.queries.length} queries.`;
@@ -331,7 +370,7 @@ async function validateJudgeSessionKey(
   try {
     state.errorMessage = "";
     state.keyStatus = "running";
-    pushActivityLogEntry(state, "Validating judge key.");
+    pushActivityLogEntry(state, "validate_judge_api_key validating judge key.");
     render();
     state.readiness = await invoke<RouterAppReadinessData>(
       "validate_judge_api_key",
@@ -371,7 +410,12 @@ async function runCpuPreviewOnly(
     state.previewStatus = "running";
     state.routeResponse = null;
     state.lastRouteRequest = null;
-    pushActivityLogEntry(state, `Running ${routerModeLabelsData[state.routerMode]} preview.`);
+    state.routeProgressStagesList =
+      createRouteProgressStagesList("preview_running");
+    pushActivityLogEntry(
+      state,
+      `run_cpu_preview_only running ${routerModeLabelsData[state.routerMode]} preview.`,
+    );
     render();
     const routeRequest = createRouteRequestData(state, false);
     state.routeResponse = await invoke<RouteToolsResponseData>(
@@ -384,9 +428,16 @@ async function runCpuPreviewOnly(
       catalog_tools: null,
     };
     state.previewStatus = "complete";
-    pushActivityLogEntry(state, "CPU preview returned top five candidates.");
+    state.routeProgressStagesList =
+      createRouteProgressStagesList("preview_complete");
+    pushActivityLogEntry(
+      state,
+      "run_cpu_preview_only CPU preview returned top five candidates.",
+    );
   } catch (error) {
     state.previewStatus = "failed";
+    state.routeProgressStagesList =
+      createRouteProgressStagesList("preview_failed");
     state.errorMessage = errorToMessageText(error);
   }
   render();
@@ -403,7 +454,9 @@ async function routeToolsForQuery(
     state.judgedStatus = "running";
     state.routeResponse = null;
     state.lastRouteRequest = null;
-    pushActivityLogEntry(state, "Running judged route.");
+    state.routeProgressStagesList =
+      createRouteProgressStagesList("judged_running");
+    pushActivityLogEntry(state, "route_tools_for_query running judged route.");
     render();
     const routeRequest = createRouteRequestData(state, true);
     state.routeResponse = await invoke<RouteToolsResponseData>(
@@ -416,9 +469,13 @@ async function routeToolsForQuery(
       catalog_tools: null,
     };
     state.judgedStatus = "complete";
-    pushActivityLogEntry(state, "Judge selected top route result.");
+    state.routeProgressStagesList =
+      createRouteProgressStagesList("judged_complete");
+    pushActivityLogEntry(state, "route_tools_for_query selected top route result.");
   } catch (error) {
     state.judgedStatus = "failed";
+    state.routeProgressStagesList =
+      createRouteProgressStagesList("judged_failed");
     state.errorMessage = errorToMessageText(error);
   }
   render();
@@ -433,7 +490,10 @@ async function evaluateRoutingSubsetMetrics(
   try {
     state.errorMessage = "";
     state.metricsStatus = "running";
-    pushActivityLogEntry(state, `Evaluating ${routerModeLabelsData[state.routerMode]}.`);
+    pushActivityLogEntry(
+      state,
+      `evaluate_routing_subset_metrics evaluating ${routerModeLabelsData[state.routerMode]}.`,
+    );
     render();
     state.metricsReport = await invoke<MetricReportOutputData>(
       "evaluate_routing_subset_metrics",
@@ -442,7 +502,7 @@ async function evaluateRoutingSubsetMetrics(
       },
     );
     state.metricsStatus = "complete";
-    pushActivityLogEntry(state, "Benchmark metrics completed.");
+    pushActivityLogEntry(state, "evaluate_routing_subset_metrics completed.");
   } catch (error) {
     state.metricsStatus = "failed";
     state.errorMessage = errorToMessageText(error);
@@ -459,7 +519,7 @@ async function compareRoutingModesMetrics(
   try {
     state.errorMessage = "";
     state.modeComparisonStatusState = "running";
-    pushActivityLogEntry(state, "Comparing all router modes.");
+    pushActivityLogEntry(state, "compare_routing_modes_metrics comparing all router modes.");
     render();
     state.modeComparisonReportsList = await invoke<MetricReportOutputData[]>(
       "compare_routing_modes_metrics",
@@ -468,7 +528,7 @@ async function compareRoutingModesMetrics(
       },
     );
     state.modeComparisonStatusState = "complete";
-    pushActivityLogEntry(state, "Mode comparison completed.");
+    pushActivityLogEntry(state, "compare_routing_modes_metrics completed.");
   } catch (error) {
     state.modeComparisonStatusState = "failed";
     state.errorMessage = errorToMessageText(error);
@@ -489,7 +549,7 @@ async function downloadEvaluationPackFiles(
       { datasetPath: null },
     );
     files.forEach((file) => downloadText(file.filename, file.content));
-    state.exportMessage = `Downloaded ${files.length} benchmark fixture files.`;
+    state.exportMessage = `download_evaluation_pack_files downloaded ${files.length} benchmark fixture files.`;
     pushActivityLogEntry(state, state.exportMessage);
   } catch (error) {
     state.errorMessage = errorToMessageText(error);
@@ -510,7 +570,7 @@ async function exportRouteEvidenceReport(
       payload: createRouteEvidencePayload(state),
     });
     downloadText("tool-router-evidence-report.md", content);
-    state.exportMessage = "Downloaded route evidence report.";
+    state.exportMessage = "export_route_evidence_report downloaded route evidence report.";
     pushActivityLogEntry(state, state.exportMessage);
   } catch (error) {
     state.errorMessage = errorToMessageText(error);
@@ -528,7 +588,7 @@ async function exportDiagnosticLogsText(
     state.errorMessage = "";
     const content = await invoke<string>("export_diagnostic_logs_text");
     downloadText("tool-router-diagnostic-log.txt", content);
-    state.exportMessage = "Downloaded diagnostic log.";
+    state.exportMessage = "export_diagnostic_logs_text downloaded diagnostic log.";
     pushActivityLogEntry(state, state.exportMessage);
   } catch (error) {
     state.errorMessage = errorToMessageText(error);
@@ -596,29 +656,54 @@ function createCatalogStatsSummary(state: RouterWorkbenchStateData) {
   };
 }
 
+function createDuplicateToolStatusText(tools: ToolCatalogRecordData[]): string {
+  const seenToolIds = new Set<string>();
+  const duplicateToolIds = new Set<string>();
+  tools.forEach((tool) => {
+    if (seenToolIds.has(tool.id)) {
+      duplicateToolIds.add(tool.id);
+    }
+    seenToolIds.add(tool.id);
+  });
+  return duplicateToolIds.size === 0
+    ? "unique ids"
+    : `${duplicateToolIds.size} duplicate ids`;
+}
+
 function createBenchmarkGoldMatch(state: RouterWorkbenchStateData) {
   const query = getSelectedQueryRecordData(state);
   if (state.querySource !== "benchmark" || !query || !state.routeResponse) {
     return null;
   }
-  const selectedToolId =
-    state.routeResponse.judge_decision?.selected_tool_id ??
-    state.routeResponse.candidates[0]?.tool_id ??
-    null;
-  const matchedRequiredTool = selectedToolId
+  const decision = state.routeResponse.judge_decision;
+  const selectedToolId = decision?.selected_tool_id ?? null;
+  const cpuRequiredToolSurvived = state.routeResponse.candidates
+    .slice(0, 5)
+    .some((candidate) => query.required_tool_ids.includes(candidate.tool_id));
+  const selectedRequiredTool = selectedToolId
     ? query.required_tool_ids.includes(selectedToolId)
-    : !query.should_route;
+    : false;
+  const goldMatchStatus = !decision
+    ? "unjudged_cpu_preview"
+    : query.should_route && !cpuRequiredToolSurvived
+      ? "missing_required_tool"
+      : query.should_route && selectedRequiredTool
+        ? "matched_required_tool"
+        : query.should_route
+          ? "wrong_llm_top1"
+          : decision.decision === "abstain" || !selectedToolId
+            ? "correct_abstain"
+            : "abstention_miss";
   return {
     query_id: query.id,
     should_route: query.should_route,
     required_tool_ids: query.required_tool_ids,
     selected_tool_id: selectedToolId,
-    gold_match_status: matchedRequiredTool
-      ? query.should_route
-        ? "matched_required_tool"
-        : "correct_abstain"
-      : "missed_required_tool",
-    failure_bucket: query.failure_modes.join(", ") || "none",
+    gold_match_status: goldMatchStatus,
+    failure_bucket:
+      goldMatchStatus === "matched_required_tool" || goldMatchStatus === "correct_abstain"
+        ? "none"
+        : goldMatchStatus,
   };
 }
 
@@ -638,7 +723,66 @@ function getSelectedQueryRecordData(
 function getFilteredQueriesList(
   state: RouterWorkbenchStateData,
 ): RouteQueryInputData[] {
-  return state.queries.slice(0, 50);
+  const searchText = state.querySearchTextValue.trim().toLowerCase();
+  const queryList = searchText
+    ? state.queries.filter((query) =>
+        [
+          query.id,
+          query.query,
+          ...query.required_tool_ids,
+          ...query.source_expected_tools,
+          ...query.failure_modes,
+        ].some((value) => value.toLowerCase().includes(searchText)),
+      )
+    : state.queries;
+  return queryList.slice(0, 50);
+}
+
+function createRouteProgressStagesList(
+  flow: RouteProgressFlowData,
+): RouteProgressStageData[] {
+  const previewFlow = flow.startsWith("preview");
+  const failedFlow = flow.endsWith("failed");
+  const completeFlow = flow.endsWith("complete");
+  const runningFlow = flow.endsWith("running");
+  const waitingStatus = "waiting" satisfies RouteProgressStageStatusData;
+  const judgeStatus = previewFlow
+    ? "skipped"
+    : failedFlow
+      ? "failed"
+      : completeFlow
+        ? "complete"
+        : runningFlow
+          ? "running"
+          : waitingStatus;
+  return [
+    {
+      label: "Catalog validation",
+      status: failedFlow ? "failed" : runningFlow || completeFlow ? "complete" : waitingStatus,
+    },
+    {
+      label: "CPU ranking",
+      status: failedFlow
+        ? "failed"
+        : runningFlow
+          ? "running"
+          : completeFlow
+            ? "complete"
+            : waitingStatus,
+    },
+    {
+      label: "Judge review",
+      status: judgeStatus,
+    },
+    {
+      label: "Evidence compilation",
+      status: failedFlow
+        ? "failed"
+        : completeFlow
+          ? "complete"
+          : waitingStatus,
+    },
+  ];
 }
 
 function canRunPreviewNow(state: RouterWorkbenchStateData): boolean {
@@ -831,6 +975,7 @@ function renderJudgeKeyCard(state: RouterWorkbenchStateData): string {
 }
 
 function renderEvaluationPackCard(state: RouterWorkbenchStateData): string {
+  const catalogStats = createCatalogStatsSummary(state);
   return `
     <section class="pack-panel">
       <div class="section-title-row">
@@ -838,13 +983,16 @@ function renderEvaluationPackCard(state: RouterWorkbenchStateData): string {
           <h2>Training Benchmark</h2>
           <p>Bundled subset with labeled tool ids, abstentions, relevance grades, and failure modes.</p>
         </div>
-        <button id="download-pack-button" class="secondary-action" ${state.packStatus !== "complete" ? "disabled" : ""}>Download Training Pack</button>
+        <button id="download-pack-button" class="secondary-action" ${state.packStatus !== "complete" ? "disabled" : ""}>Download Evaluation Pack</button>
       </div>
       <div class="metric-grid">
-        <div><strong>${state.tools.length}</strong><span>tools</span></div>
-        <div><strong>${state.queries.length}</strong><span>queries</span></div>
-        <div><strong>${state.queries.filter((query) => query.should_route).length}</strong><span>route labels</span></div>
-        <div><strong>${state.queries.filter((query) => !query.should_route).length}</strong><span>abstains</span></div>
+        <div><strong>${catalogStats.tool_count}</strong><span>tools</span></div>
+        <div><strong>${catalogStats.query_count}</strong><span>queries</span></div>
+        <div><strong>${catalogStats.source_count}</strong><span>sources</span></div>
+        <div><strong>${catalogStats.schema_count}</strong><span>schemas</span></div>
+        <div><strong>${catalogStats.route_required_count}</strong><span>route labels</span></div>
+        <div><strong>${catalogStats.abstention_count}</strong><span>abstains</span></div>
+        <div><strong>${escapeHtmlText(createDuplicateToolStatusText(state.tools))}</strong><span>duplicate-id status</span></div>
       </div>
       <div class="upload-grid">
         <label class="field-stack" for="custom-catalog-input">
@@ -863,12 +1011,13 @@ function renderEvaluationPackCard(state: RouterWorkbenchStateData): string {
 
 function renderQuerySourcePanel(state: RouterWorkbenchStateData): string {
   const selected = getSelectedQueryRecordData(state);
-  const options = getFilteredQueriesList(state)
+  const filteredQueries = getFilteredQueriesList(state);
+  const options = filteredQueries
     .map((query) => {
       const expected = query.required_tool_ids[0] ?? "abstain";
       return `<option value="${escapeAttributeText(query.id)}" ${query.id === state.selectedQueryId ? "selected" : ""}>${escapeHtmlText(`${query.id} -> ${expected}`)}</option>`;
     })
-    .join("");
+    .join("") || `<option value="">No matching benchmark query</option>`;
   return `
     <section class="query-panel">
       <div class="section-title-row">
@@ -884,10 +1033,15 @@ function renderQuerySourcePanel(state: RouterWorkbenchStateData): string {
       ${
         state.querySource === "benchmark"
           ? `
+            <label class="field-stack" for="benchmark-query-search">
+              <span>Search benchmark queries</span>
+              <input id="benchmark-query-search" type="search" value="${escapeAttributeText(state.querySearchTextValue)}" placeholder="Search id, query, expected tool, or failure mode" />
+            </label>
             <label class="field-stack" for="benchmark-query-select">
               <span>Benchmark query</span>
-              <select id="benchmark-query-select">${options}</select>
+              <select id="benchmark-query-select" ${filteredQueries.length === 0 ? "disabled" : ""}>${options}</select>
             </label>
+            <p class="query-summary">Showing ${filteredQueries.length} of ${state.queries.length} benchmark queries.</p>
             <p class="query-summary">${renderQuerySummaryText(selected)}</p>
           `
           : `
@@ -940,7 +1094,27 @@ function renderRouteActionPanel(state: RouterWorkbenchStateData): string {
       <button id="export-evidence-button" class="secondary-action" ${!state.routeResponse ? "disabled" : ""}>Export Evidence</button>
       <button id="export-logs-button" class="secondary-action">Export Logs</button>
       ${state.exportMessage ? `<p class="export-message">${escapeHtmlText(state.exportMessage)}</p>` : ""}
+      ${renderRouteProgressStagesList(state.routeProgressStagesList)}
     </section>
+  `;
+}
+
+function renderRouteProgressStagesList(
+  stages: RouteProgressStageData[],
+): string {
+  return `
+    <ol class="route-progress-strip" aria-label="Route progress stages">
+      ${stages
+        .map(
+          (stage) => `
+            <li class="route-progress-stage is-${stage.status}" data-progress-stage="${escapeAttributeText(stage.label)}" data-progress-status="${stage.status}">
+              <span>${escapeHtmlText(stage.label)}</span>
+              <strong>${escapeHtmlText(stage.status)}</strong>
+            </li>
+          `,
+        )
+        .join("")}
+    </ol>
   `;
 }
 
@@ -981,7 +1155,7 @@ function renderCandidateEvidenceCards(
       ${candidates
         .map(
           (candidate) => `
-            <article class="candidate-card">
+            <article class="candidate-card" data-testid="candidate-card">
               <div class="candidate-rank">#${candidate.rank}</div>
               <div>
                 <h3>${escapeHtmlText(candidate.tool_id)}</h3>
@@ -990,6 +1164,7 @@ function renderCandidateEvidenceCards(
                   <div><dt>Score</dt><dd>${formatMetricValue(candidate.score)}</dd></div>
                   <div><dt>Fields</dt><dd>${escapeHtmlText(candidate.matched_fields.join(", ") || "none")}</dd></div>
                   <div><dt>Terms</dt><dd>${escapeHtmlText(candidate.matched_terms.slice(0, 8).join(", ") || "none")}</dd></div>
+                  <div><dt>Risk</dt><dd>${escapeHtmlText(candidate.risk || "none")}</dd></div>
                 </dl>
               </div>
             </article>
@@ -1002,6 +1177,7 @@ function renderCandidateEvidenceCards(
 
 function renderBenchmarkHealthPanel(state: RouterWorkbenchStateData): string {
   const report = state.metricsReport;
+  const gold = createBenchmarkGoldMatch(state);
   return `
     <section class="metrics-panel">
       <div class="section-title-row">
@@ -1014,13 +1190,28 @@ function renderBenchmarkHealthPanel(state: RouterWorkbenchStateData): string {
         report
           ? `
             <div class="metric-grid">
+              <div><strong>${formatMetricValue(report.recall_at_k["1"] ?? 0)}</strong><span>Recall@1</span></div>
+              <div><strong>${formatMetricValue(report.recall_at_k["3"] ?? 0)}</strong><span>Recall@3</span></div>
               <div><strong>${formatMetricValue(report.recall_at_k["5"] ?? 0)}</strong><span>Recall@5</span></div>
+              <div><strong>${formatMetricValue(report.recall_at_k["10"] ?? 0)}</strong><span>Recall@10</span></div>
               <div><strong>${formatMetricValue(report.mrr)}</strong><span>MRR</span></div>
               <div><strong>${formatMetricValue(report.ndcg_at_10)}</strong><span>nDCG@10</span></div>
+              <div><strong>${formatMetricValue(report.abstention_accuracy)}</strong><span>Abstention</span></div>
+              <div><strong>${formatMetricValue(report.judged_route_accuracy)}</strong><span>Judged route</span></div>
               <div><strong>${formatMetricValue(report.token_reduction_estimate)}</strong><span>Token reduction</span></div>
             </div>
           `
           : `<p class="empty-state">Run benchmark eval to compare the selected CPU router.</p>`
+      }
+      ${
+        gold
+          ? `
+            <div class="metric-grid benchmark-gold-grid">
+              <div><strong>${escapeHtmlText(gold.gold_match_status)}</strong><span>Gold status</span></div>
+              <div><strong>${escapeHtmlText(gold.failure_bucket)}</strong><span>Failure bucket</span></div>
+            </div>
+          `
+          : ""
       }
       ${renderModeComparisonTable(state.modeComparisonReportsList)}
     </section>
@@ -1043,6 +1234,7 @@ function renderModeComparisonTable(reports: MetricReportOutputData[]): string {
               <th>MRR</th>
               <th>nDCG@10</th>
               <th>Abstain</th>
+              <th>Judged</th>
               <th>Token Cut</th>
             </tr>
           </thead>
@@ -1056,6 +1248,7 @@ function renderModeComparisonTable(reports: MetricReportOutputData[]): string {
                     <td>${formatMetricValue(report.mrr)}</td>
                     <td>${formatMetricValue(report.ndcg_at_10)}</td>
                     <td>${formatMetricValue(report.abstention_accuracy)}</td>
+                    <td>${formatMetricValue(report.judged_route_accuracy)}</td>
                     <td>${formatMetricValue(report.token_reduction_estimate)}</td>
                   </tr>
                 `,

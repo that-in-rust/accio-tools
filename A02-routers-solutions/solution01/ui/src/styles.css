@@ -326,7 +326,59 @@ textarea {
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
   padding: 0.8rem;
+}
+
+.route-progress-strip {
+  display: grid;
+  gap: 0.5rem;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  width: 100%;
+}
+
+.route-progress-stage {
+  background: var(--surface-muted);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 0.25rem;
+  min-height: 58px;
+  padding: 0.6rem 0.7rem;
+}
+
+.route-progress-stage span,
+.route-progress-stage strong {
+  overflow-wrap: anywhere;
+}
+
+.route-progress-stage span {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.route-progress-stage strong {
+  font-size: 0.82rem;
+  text-transform: capitalize;
+}
+
+.route-progress-stage.is-complete {
+  border-color: rgb(15 118 110 / 45%);
+}
+
+.route-progress-stage.is-running {
+  border-color: rgb(161 92 17 / 45%);
+  color: var(--warning);
+}
+
+.route-progress-stage.is-failed {
+  border-color: rgb(177 63 51 / 45%);
+  color: var(--danger);
 }
 
 .export-message {
@@ -361,7 +413,7 @@ textarea {
 }
 
 .candidate-card dl {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
 .decision-box {
@@ -411,6 +463,7 @@ textarea {
   .metric-grid,
   .upload-grid,
   .mode-grid,
+  .route-progress-strip,
   .candidate-card,
   .candidate-card dl {
     grid-template-columns: 1fr;

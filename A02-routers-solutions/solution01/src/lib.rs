@@ -339,6 +339,10 @@ pub fn build_route_evidence_report(payload: &RouteEvidencePayloadData) -> String
             metrics.abstention_accuracy
         ));
         lines.push(format!(
+            "judged_route_accuracy: {:.4}",
+            metrics.judged_route_accuracy
+        ));
+        lines.push(format!(
             "token_reduction_estimate: {:.4}",
             metrics.token_reduction_estimate
         ));
@@ -608,6 +612,7 @@ mod tests {
         assert!(report.contains("selected_tool_id: tool.channel"));
         assert!(report.contains("gold_match_status: matched_required_tool"));
         assert!(report.contains("failure_bucket: none"));
+        assert!(report.contains("judged_route_accuracy: 0.5000"));
         assert!(report.contains("token_reduction_estimate: 0.9894"));
         assert!(!report.contains("sk-should-not-leak"));
     }
@@ -724,6 +729,7 @@ mod tests {
             mrr: 0.5223,
             ndcg_at_10: 0.5553,
             abstention_accuracy: 0.0,
+            judged_route_accuracy: 0.5,
             average_selected_candidate_count: 10.0,
             token_reduction_estimate: 0.9894,
             router_mode: RouterModeNameData::Lexical,

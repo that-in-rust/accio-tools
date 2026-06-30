@@ -24,10 +24,34 @@ describe("router workbench journey", () => {
     expect(readScreenTextContent()).toContain("Evaluate Inquiry");
     expect(readScreenTextContent()).toContain("947");
     expect(readScreenTextContent()).toContain("50");
+    expect(readScreenTextContent()).toContain("sources");
+    expect(readScreenTextContent()).toContain("schemas");
+    expect(readScreenTextContent()).toContain("unique ids");
     expect(readScreenTextContent()).toContain("Benchmark Query");
     expect(readScreenTextContent()).toContain("Custom Query");
+    expect(readScreenTextContent()).toContain("Search benchmark queries");
     expect(getButtonByLabelText("Run CPU Preview").disabled).toBe(false);
     expect(getButtonByLabelText("Run Judged Route").disabled).toBe(true);
+  });
+
+  it("filters bundled benchmark queries before routing", async () => {
+    const invoke = createRouterInvokeMock();
+
+    renderRouterWorkbenchApp(invoke);
+    await flushAsyncViewUpdates();
+    const searchInput = getInputByLabelText("Search benchmark queries");
+    searchInput.value = "visit 14";
+    searchInput.dispatchEvent(new Event("input", { bubbles: true }));
+    await flushAsyncViewUpdates();
+    getButtonByLabelText("Run CPU Preview").click();
+    await flushAsyncViewUpdates();
+
+    expect(readScreenTextContent()).toContain("query-14 -> calendar.search_availability");
+    expect(invoke).toHaveBeenCalledWith("run_cpu_preview_only", {
+      request: expect.objectContaining({
+        query: "Find nearby calendar availability for a follow-up visit 14",
+      }),
+    });
   });
 
   it("runs CPU preview with selected benchmark query and router mode", async () => {
@@ -49,6 +73,9 @@ describe("router workbench journey", () => {
     expect(readScreenTextContent()).toContain("cpu_only_debug_preview");
     expect(readScreenTextContent()).toContain("calendar.search_availability");
     expect(readScreenTextContent()).toContain("CPU preview returned top five candidates.");
+    expect(readScreenTextContent()).toContain("run_cpu_preview_only");
+    expect(document.querySelectorAll('[data-testid="candidate-card"]')).toHaveLength(5);
+    expect(getProgressStatusByLabel("Judge review")).toBe("skipped");
   });
 
   it("validates judge key and runs judged route", async () => {
@@ -77,6 +104,11 @@ describe("router workbench journey", () => {
     });
     expect(readScreenTextContent()).toContain("judged_route");
     expect(readScreenTextContent()).toContain("mock judge selected the strongest candidate");
+    expect(getProgressStatusByLabel("Catalog validation")).toBe("complete");
+    expect(getProgressStatusByLabel("CPU ranking")).toBe("complete");
+    expect(getProgressStatusByLabel("Judge review")).toBe("complete");
+    expect(getProgressStatusByLabel("Evidence compilation")).toBe("complete");
+    expect(document.querySelectorAll('[data-testid="candidate-card"]')).toHaveLength(5);
   });
 
   it("routes a custom query instead of benchmark text", async () => {
@@ -184,10 +216,17 @@ describe("router workbench journey", () => {
     await flushAsyncViewUpdates();
     getButtonByLabelText("Export Logs").click();
     await flushAsyncViewUpdates();
-    getButtonByLabelText("Download Training Pack").click();
+    getButtonByLabelText("Download Evaluation Pack").click();
     await flushAsyncViewUpdates();
 
     expect(readScreenTextContent()).toContain("0.6493");
+    expect(readScreenTextContent()).toContain("Recall@1");
+    expect(readScreenTextContent()).toContain("Recall@3");
+    expect(readScreenTextContent()).toContain("Recall@10");
+    expect(readScreenTextContent()).toContain("Abstention");
+    expect(readScreenTextContent()).toContain("Judged route");
+    expect(readScreenTextContent()).toContain("Failure bucket");
+    expect(readScreenTextContent()).toContain("export_route_evidence_report");
     expect(invoke).toHaveBeenCalledWith("evaluate_routing_subset_metrics", {
       request: {
         dataset_path: null,
@@ -213,7 +252,9 @@ describe("router workbench journey", () => {
         }),
         benchmark_gold_match: expect.objectContaining({
           query_id: "query-00",
-          gold_match_status: "matched_required_tool",
+          selected_tool_id: null,
+          gold_match_status: "unjudged_cpu_preview",
+          failure_bucket: "unjudged_cpu_preview",
         }),
         metrics_report: expect.objectContaining({
           token_reduction_estimate: 0.9894,
@@ -359,7 +400,9 @@ function createRouteResponseData(
 ): RouteToolsResponseData {
   return {
     route_label: routeLabel,
-    candidates: [createCandidateCardData()],
+    candidates: Array.from({ length: 5 }, (_, index) =>
+      createCandidateCardData(index),
+    ),
     judge_decision: judged
       ? {
           decision: "select_tool",
@@ -371,15 +414,18 @@ function createRouteResponseData(
   };
 }
 
-function createCandidateCardData(): CandidateEvidenceCardData {
+function createCandidateCardData(index = 0): CandidateEvidenceCardData {
   return {
-    rank: 1,
-    score: 12.3456,
-    tool_id: "calendar.search_availability",
+    rank: index + 1,
+    score: 12.3456 - index,
+    tool_id:
+      index === 0
+        ? "calendar.search_availability"
+        : `calendar.candidate_${index}`,
     matched_terms: ["calendar", "availability"],
     matched_fields: ["name", "description"],
     capability_match: ["calendar"],
-    risk: "low",
+    risk: index === 0 ? "low" : "medium",
     why_matched: "Matched calendar availability language.",
     signal_contributions: { lexical: 12.3456 },
   };
@@ -394,6 +440,7 @@ function createMetricsReportData(): MetricReportOutputData {
     mrr: 0.5223,
     ndcg_at_10: 0.5553,
     abstention_accuracy: 0,
+    judged_route_accuracy: 0.5,
     average_selected_candidate_count: 5,
     token_reduction_estimate: 0.9894,
     router_mode: "lexical",
@@ -445,6 +492,12 @@ function getInputByLabelText(label: string): HTMLInputElement {
   const input = element?.querySelector("input");
   if (!input) throw new Error(`Missing input ${label}`);
   return input;
+}
+
+function getProgressStatusByLabel(label: string): string | undefined {
+  return document
+    .querySelector(`[data-progress-stage="${label}"]`)
+    ?.getAttribute("data-progress-status") ?? undefined;
 }
 
 async function uploadJsonFileByLabel(label: string, value: unknown) {

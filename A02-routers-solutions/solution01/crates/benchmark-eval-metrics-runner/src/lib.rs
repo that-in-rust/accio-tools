@@ -1,6 +1,7 @@
 use catalog_router_core_engine::{
     rank_tools_for_mode, validate_catalog_schema_input, validate_query_record_input,
-    RouteQueryInputData, RouterModeNameData, RouterTypedErrorKind, ToolCatalogRecordData,
+    CandidateEvidenceCardData, RouteQueryInputData, RouterModeNameData, RouterTypedErrorKind,
+    ToolCatalogRecordData,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap};
@@ -34,9 +35,35 @@ pub struct MetricReportOutputData {
     pub mrr: f64,
     pub ndcg_at_10: f64,
     pub abstention_accuracy: f64,
+    pub judged_route_accuracy: f64,
     pub average_selected_candidate_count: f64,
     pub token_reduction_estimate: f64,
     pub router_mode: RouterModeNameData,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum BenchmarkRouteOutcomeKindData {
+    MatchedRequiredTool,
+    MissingRequiredTool,
+    WrongJudgeSelection,
+    CorrectAbstain,
+    AbstentionMiss,
+    UnjudgedCpuPreview,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct BenchmarkRouteOutcomeData {
+    pub query_id: String,
+    pub should_route: bool,
+    pub required_tool_ids: Vec<String>,
+    pub cpu_required_tool_survived: bool,
+    pub judged_route_attempted: bool,
+    pub judge_abstained: bool,
+    pub judged_selected_tool_id: Option<String>,
+    pub judged_passed: bool,
+    pub outcome_kind: BenchmarkRouteOutcomeKindData,
+    pub failure_bucket: String,
 }
 
 pub fn load_bundled_evaluation_pack(
@@ -82,13 +109,27 @@ pub fn evaluate_routing_subset_metrics(
     let mut ndcg_sum = 0.0;
     let mut ndcg_count = 0usize;
     let mut candidate_count_sum = 0usize;
+    let mut judged_pass_count = 0usize;
 
     for query in &pack.queries {
         candidate_count_sum += predictions.get(&query.id).map(Vec::len).unwrap_or_default();
+        let candidates = predictions.get(&query.id).cloned().unwrap_or_default();
+        let judged_selected_tool_id = select_mock_judge_tool_id(&candidates);
+        let outcome = score_benchmark_route_outcome(
+            query,
+            &candidates,
+            judged_selected_tool_id.as_deref(),
+            judged_selected_tool_id.is_none(),
+            true,
+        );
+        if outcome.judged_passed {
+            judged_pass_count += 1;
+        }
     }
 
     for query in &routed {
-        let ranked = predictions.get(&query.id).cloned().unwrap_or_default();
+        let candidates = predictions.get(&query.id).cloned().unwrap_or_default();
+        let ranked = collect_ranked_tool_ids(&candidates);
         let required: std::collections::BTreeSet<&str> =
             query.required_tool_ids.iter().map(String::as_str).collect();
         for k in k_values {
@@ -169,10 +210,61 @@ pub fn evaluate_routing_subset_metrics(
         abstention_accuracy: round_metric_value(
             abstention_hits as f64 / abstentions.len().max(1) as f64,
         ),
+        judged_route_accuracy: round_metric_value(
+            judged_pass_count as f64 / pack.queries.len().max(1) as f64,
+        ),
         average_selected_candidate_count,
         token_reduction_estimate,
         router_mode: request.router_mode,
     })
+}
+
+pub fn score_benchmark_route_outcome(
+    query: &RouteQueryInputData,
+    candidates: &[CandidateEvidenceCardData],
+    judged_selected_tool_id: Option<&str>,
+    judge_abstained: bool,
+    judged_route_attempted: bool,
+) -> BenchmarkRouteOutcomeData {
+    let required: std::collections::BTreeSet<&str> =
+        query.required_tool_ids.iter().map(String::as_str).collect();
+    let cpu_required_tool_survived = candidates
+        .iter()
+        .take(5)
+        .any(|candidate| required.contains(candidate.tool_id.as_str()));
+    let judged_selected_required = judged_selected_tool_id
+        .map(|tool_id| required.contains(tool_id))
+        .unwrap_or(false);
+    let outcome_kind = if !judged_route_attempted {
+        BenchmarkRouteOutcomeKindData::UnjudgedCpuPreview
+    } else if query.should_route && !cpu_required_tool_survived {
+        BenchmarkRouteOutcomeKindData::MissingRequiredTool
+    } else if query.should_route && judged_selected_required {
+        BenchmarkRouteOutcomeKindData::MatchedRequiredTool
+    } else if query.should_route {
+        BenchmarkRouteOutcomeKindData::WrongJudgeSelection
+    } else if judge_abstained {
+        BenchmarkRouteOutcomeKindData::CorrectAbstain
+    } else {
+        BenchmarkRouteOutcomeKindData::AbstentionMiss
+    };
+    let judged_passed = matches!(
+        outcome_kind,
+        BenchmarkRouteOutcomeKindData::MatchedRequiredTool
+            | BenchmarkRouteOutcomeKindData::CorrectAbstain
+    );
+    BenchmarkRouteOutcomeData {
+        query_id: query.id.clone(),
+        should_route: query.should_route,
+        required_tool_ids: query.required_tool_ids.clone(),
+        cpu_required_tool_survived,
+        judged_route_attempted,
+        judge_abstained,
+        judged_selected_tool_id: judged_selected_tool_id.map(str::to_string),
+        judged_passed,
+        failure_bucket: create_failure_bucket_value(&outcome_kind, query),
+        outcome_kind,
+    }
 }
 
 pub fn compare_routing_modes_metrics(
@@ -308,18 +400,14 @@ fn rank_queries_for_mode(
     router_mode: RouterModeNameData,
     threshold: f64,
     max_k: usize,
-) -> Result<HashMap<String, Vec<String>>, RouterTypedErrorKind> {
+) -> Result<HashMap<String, Vec<CandidateEvidenceCardData>>, RouterTypedErrorKind> {
     let mut predictions = HashMap::new();
     for query in &pack.queries {
         let candidates =
             rank_candidates_for_mode(query, &pack.tools, router_mode, threshold, max_k)?;
         predictions.insert(
             query.id.clone(),
-            candidates
-                .into_iter()
-                .take(max_k)
-                .map(|candidate| candidate.tool_id)
-                .collect(),
+            candidates.into_iter().take(max_k).collect(),
         );
     }
     Ok(predictions)
@@ -339,6 +427,37 @@ fn discounted_gain_value(relevance: u32, rank: usize) -> f64 {
     (2.0_f64.powi(relevance as i32) - 1.0) / ((rank + 1) as f64).log2()
 }
 
+fn collect_ranked_tool_ids(candidates: &[CandidateEvidenceCardData]) -> Vec<String> {
+    candidates
+        .iter()
+        .map(|candidate| candidate.tool_id.clone())
+        .collect()
+}
+
+fn select_mock_judge_tool_id(candidates: &[CandidateEvidenceCardData]) -> Option<String> {
+    candidates
+        .first()
+        .map(|candidate| candidate.tool_id.clone())
+}
+
+fn create_failure_bucket_value(
+    outcome_kind: &BenchmarkRouteOutcomeKindData,
+    query: &RouteQueryInputData,
+) -> String {
+    match outcome_kind {
+        BenchmarkRouteOutcomeKindData::MatchedRequiredTool
+        | BenchmarkRouteOutcomeKindData::CorrectAbstain => "none".to_string(),
+        BenchmarkRouteOutcomeKindData::MissingRequiredTool => "missing_required_tool".to_string(),
+        BenchmarkRouteOutcomeKindData::WrongJudgeSelection => "wrong_llm_top1".to_string(),
+        BenchmarkRouteOutcomeKindData::AbstentionMiss => "abstention_miss".to_string(),
+        BenchmarkRouteOutcomeKindData::UnjudgedCpuPreview => query
+            .failure_modes
+            .first()
+            .cloned()
+            .unwrap_or_else(|| "unjudged_cpu_preview".to_string()),
+    }
+}
+
 fn round_metric_value(value: f64) -> f64 {
     (value * 10_000.0).round() / 10_000.0
 }
@@ -349,7 +468,7 @@ fn create_markdown_report_text(report: &MetricReportOutputData) -> String {
     let recall_5 = report.recall_at_k.get("5").copied().unwrap_or_default();
     let recall_10 = report.recall_at_k.get("10").copied().unwrap_or_default();
     format!(
-        "# Routing Metrics Report\n\n- router_mode: {:?}\n- queries: {}\n- route_required_queries: {}\n- abstention_queries: {}\n- Recall@1: {:.4}\n- Recall@3: {:.4}\n- Recall@5: {:.4}\n- Recall@10: {:.4}\n- MRR: {:.4}\n- nDCG@10: {:.4}\n- abstention_accuracy: {:.4}\n- average_selected_candidate_count: {:.4}\n- token_reduction_estimate: {:.4}\n",
+        "# Routing Metrics Report\n\n- router_mode: {:?}\n- queries: {}\n- route_required_queries: {}\n- abstention_queries: {}\n- Recall@1: {:.4}\n- Recall@3: {:.4}\n- Recall@5: {:.4}\n- Recall@10: {:.4}\n- MRR: {:.4}\n- nDCG@10: {:.4}\n- abstention_accuracy: {:.4}\n- judged_route_accuracy: {:.4}\n- average_selected_candidate_count: {:.4}\n- token_reduction_estimate: {:.4}\n",
         report.router_mode,
         report.queries,
         report.route_required_queries,
@@ -361,6 +480,7 @@ fn create_markdown_report_text(report: &MetricReportOutputData) -> String {
         report.mrr,
         report.ndcg_at_10,
         report.abstention_accuracy,
+        report.judged_route_accuracy,
         report.average_selected_candidate_count,
         report.token_reduction_estimate
     )
@@ -370,17 +490,19 @@ fn create_comparison_markdown_text(reports: &[MetricReportOutputData]) -> String
     let mut lines = vec![
         "# Routing Mode Comparison Report".to_string(),
         String::new(),
-        "| mode | Recall@5 | MRR | nDCG@10 | abstention | token reduction |".to_string(),
-        "| --- | ---: | ---: | ---: | ---: | ---: |".to_string(),
+        "| mode | Recall@5 | MRR | nDCG@10 | abstention | judged route | token reduction |"
+            .to_string(),
+        "| --- | ---: | ---: | ---: | ---: | ---: | ---: |".to_string(),
     ];
     for report in reports {
         lines.push(format!(
-            "| {:?} | {:.4} | {:.4} | {:.4} | {:.4} | {:.4} |",
+            "| {:?} | {:.4} | {:.4} | {:.4} | {:.4} | {:.4} | {:.4} |",
             report.router_mode,
             report.recall_at_k.get("5").copied().unwrap_or_default(),
             report.mrr,
             report.ndcg_at_10,
             report.abstention_accuracy,
+            report.judged_route_accuracy,
             report.token_reduction_estimate
         ));
     }
@@ -508,6 +630,80 @@ mod tests {
     }
 
     #[test]
+    fn judged_scoring_requires_selected_required_tool() {
+        let query = create_custom_query_record();
+        let candidates = vec![
+            create_candidate_card_data("custom.slack_read", 1),
+            create_candidate_card_data("custom.slack_post", 2),
+        ];
+
+        let outcome = score_benchmark_route_outcome(
+            &query,
+            &candidates,
+            Some("custom.slack_read"),
+            false,
+            true,
+        );
+
+        assert!(outcome.cpu_required_tool_survived);
+        assert!(!outcome.judged_passed);
+        assert_eq!(
+            outcome.outcome_kind,
+            BenchmarkRouteOutcomeKindData::WrongJudgeSelection
+        );
+        assert_eq!(outcome.failure_bucket, "wrong_llm_top1");
+    }
+
+    #[test]
+    fn judged_scoring_scores_abstention_gold() {
+        let mut query = create_custom_query_record();
+        query.should_route = false;
+        query.required_tool_ids = Vec::new();
+
+        let correct = score_benchmark_route_outcome(&query, &[], None, true, true);
+        let wrong = score_benchmark_route_outcome(
+            &query,
+            &[create_candidate_card_data("custom.slack_post", 1)],
+            Some("custom.slack_post"),
+            false,
+            true,
+        );
+
+        assert!(correct.judged_passed);
+        assert_eq!(
+            correct.outcome_kind,
+            BenchmarkRouteOutcomeKindData::CorrectAbstain
+        );
+        assert!(!wrong.judged_passed);
+        assert_eq!(
+            wrong.outcome_kind,
+            BenchmarkRouteOutcomeKindData::AbstentionMiss
+        );
+    }
+
+    #[test]
+    fn metrics_report_counts_mock_judged_outcomes() {
+        let mut abstain_query = create_custom_query_record();
+        abstain_query.id = "custom-query-02".to_string();
+        abstain_query.required_tool_ids = Vec::new();
+        abstain_query.should_route = false;
+        let report = evaluate_routing_subset_metrics(RoutingMetricsRequestData {
+            dataset_path: Some("/missing/on/purpose".to_string()),
+            catalog_tools: Some(vec![create_custom_catalog_tool()]),
+            query_records: Some(vec![create_custom_query_record(), abstain_query]),
+            router_mode: RouterModeNameData::Lexical,
+            max_k: 10,
+            threshold: 2.0,
+        })
+        .expect("inline upload metrics should run");
+
+        assert_eq!(report.queries, 2);
+        assert_eq!(report.recall_at_k.get("5").copied(), Some(1.0));
+        assert_eq!(report.judged_route_accuracy, 0.5);
+        assert_eq!(report.abstention_accuracy, 0.0);
+    }
+
+    #[test]
     fn inline_pack_requires_pair() {
         let error = evaluate_routing_subset_metrics(RoutingMetricsRequestData {
             dataset_path: None,
@@ -553,6 +749,20 @@ mod tests {
             source_expected_tools: vec!["custom.slack_post".to_string()],
             failure_modes: vec!["confuse chat read with chat write".to_string()],
             unknown_metadata: BTreeMap::new(),
+        }
+    }
+
+    fn create_candidate_card_data(tool_id: &str, rank: usize) -> CandidateEvidenceCardData {
+        CandidateEvidenceCardData {
+            rank,
+            score: 10.0 - rank as f64,
+            tool_id: tool_id.to_string(),
+            matched_terms: vec!["slack".to_string()],
+            matched_fields: vec!["description".to_string()],
+            capability_match: vec!["write".to_string()],
+            risk: "low".to_string(),
+            why_matched: "Matched Slack language.".to_string(),
+            signal_contributions: BTreeMap::new(),
         }
     }
 }
