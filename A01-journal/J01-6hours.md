@@ -22,9 +22,10 @@ As a mathematical equation
             - description
             - parameter scheme
     - unknown variables
-        - variable C: context of the user query
+        - variable C: context of the user query from the orchestrator agent
 - RHS
-    - 
+    - single tool call
+        - the tool call can be finalized basis
 
 
 But due to time constraints, I will be focusing on the router and a minimal harness to exercise it. The evaluation will be left for next attempt

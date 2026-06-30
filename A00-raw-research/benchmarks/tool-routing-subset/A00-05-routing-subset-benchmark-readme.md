@@ -12,7 +12,7 @@ local reference shelf.
   tool ids, graded relevance when the source has it, failure modes, and source
   provenance.
 - `manifest.json`: source counts, intended metrics, and assignment-fit notes.
-- `source-audit.md`: what each reference repo contributed or why it was not
+- `A00-06-routing-source-audit-notes.md`: what each reference repo contributed or why it was not
   selected as a primary source.
 
 ## Recommended Evaluation
@@ -34,7 +34,7 @@ model reasons or calls tools.
 Run the dependency-free lexical sanity baseline:
 
 ```bash
-python3 scripts/run_tool_routing_baseline.py
+python3 A00-raw-research/scripts/run_tool_routing_baseline.py
 ```
 
 The default threshold is intentionally simple; expect abstention to be weak.

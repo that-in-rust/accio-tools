@@ -20,6 +20,8 @@ ROOT = Path(__file__).resolve().parents[1]
 PROJECT_ROOT = ROOT.parent
 REF_ROOT = PROJECT_ROOT / "ignore-references" / "git-ref-repo"
 OUT_DIR = ROOT / "benchmarks" / "tool-routing-subset"
+BENCHMARK_README_NAME = "A00-05-routing-subset-benchmark-readme.md"
+SOURCE_AUDIT_NAME = "A00-06-routing-source-audit-notes.md"
 
 
 SOURCE_FILES = {
@@ -898,7 +900,7 @@ local reference shelf.
   tool ids, graded relevance when the source has it, failure modes, and source
   provenance.
 - `manifest.json`: source counts, intended metrics, and assignment-fit notes.
-- `source-audit.md`: what each reference repo contributed or why it was not
+- `{SOURCE_AUDIT_NAME}`: what each reference repo contributed or why it was not
   selected as a primary source.
 
 ## Recommended Evaluation
@@ -920,7 +922,7 @@ model reasons or calls tools.
 Run the dependency-free lexical sanity baseline:
 
 ```bash
-python3 scripts/run_tool_routing_baseline.py
+python3 A00-raw-research/scripts/run_tool_routing_baseline.py
 ```
 
 The default threshold is intentionally simple; expect abstention to be weak.
@@ -1027,8 +1029,8 @@ def write_outputs() -> None:
         json.dumps(manifest, indent=2, ensure_ascii=False) + "\n",
         encoding="utf-8",
     )
-    (OUT_DIR / "README.md").write_text(write_readme(manifest), encoding="utf-8")
-    (OUT_DIR / "source-audit.md").write_text(write_source_audit(), encoding="utf-8")
+    (OUT_DIR / BENCHMARK_README_NAME).write_text(write_readme(manifest), encoding="utf-8")
+    (OUT_DIR / SOURCE_AUDIT_NAME).write_text(write_source_audit(), encoding="utf-8")
     print(
         json.dumps(
             {
