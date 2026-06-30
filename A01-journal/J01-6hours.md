@@ -12,6 +12,21 @@ connected tools, selects a small relevant subset before the agent reasons over i
 will build the router, a minimal harness to exercise it, and an evaluation that measures
 whether it works.
 
+As a mathematical equation
+
+- LHS
+    - currently known variables
+        - variable A: user query
+        - variable B: currently connected tools related data including
+            - name
+            - description
+            - parameter scheme
+    - unknown variables
+        - variable C: context of the user query
+- RHS
+    - 
+
+
 But due to time constraints, I will be focusing on the router and a minimal harness to exercise it. The evaluation will be left for next attempt
 
 ```
