@@ -24,8 +24,8 @@ As a mathematical equation
     - unknown variables
         - variable C: context of the user query from the orchestrator agent
 - RHS
-    - single tool call
-        - the tool call can be finalized basis
+    - single tool call returned to the orchestrator agent
+        - the tool call can be finalized basis the router we build
 
 
 But due to time constraints, I will be focusing on the router and a minimal harness to exercise it. The evaluation will be left for next attempt
