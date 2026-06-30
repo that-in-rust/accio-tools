@@ -28,6 +28,8 @@ As a mathematical equation
         - the tool call can be finalized basis the router we build
 
 
-But due to time constraints, I will be focusing on the router and a minimal harness to exercise it. The evaluation will be left for next attempt
+But due to time constraints, I will be focusing on the router and a benchmark to test the router
+
+
 
 ```
