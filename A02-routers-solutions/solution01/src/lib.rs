@@ -4,7 +4,8 @@ use benchmark_eval_metrics_runner::{
     MetricReportOutputData, RoutingMetricsRequestData,
 };
 use candidate_judge_openai_adapter::{
-    judge_candidate_tools_top, JudgeCandidateRequestData, JudgeDecisionOutputData,
+    judge_candidate_tools_top, judge_candidate_tools_with_openai, JudgeCandidateRequestData,
+    JudgeDecisionOutputData, OpenAiJudgeConfigData,
 };
 use catalog_router_core_engine::{
     rank_tools_for_mode, validate_catalog_schema_input, CandidateEvidenceCardData,
@@ -142,6 +143,31 @@ pub fn route_tools_for_query(
         response.judge_decision = Some(judge_candidate_tools_top(&judge_request)?);
         response.route_label = "judged_route".to_string();
     }
+    Ok(response)
+}
+
+pub async fn route_tools_with_judge(
+    request: RouteToolsRequestData,
+) -> Result<RouteToolsResponseData, AppError> {
+    let mut response = run_cpu_preview_only(request.clone())?;
+    let Some(api_key) = request
+        .api_key
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+    else {
+        return Ok(response);
+    };
+    let judge_request = JudgeCandidateRequestData {
+        query: request.query,
+        recent_context: request.recent_context,
+        candidates: response.candidates.clone(),
+    };
+    response.judge_decision = Some(match create_openai_config_data(api_key) {
+        Some(config) => judge_candidate_tools_with_openai(&judge_request, &config).await?,
+        None => judge_candidate_tools_top(&judge_request)?,
+    });
+    response.route_label = "judged_route".to_string();
     Ok(response)
 }
 
@@ -338,6 +364,20 @@ fn load_route_catalog_tools(
     Ok(load_bundled_evaluation_pack(&dataset_path)?.tools)
 }
 
+fn create_openai_config_data(api_key: &str) -> Option<OpenAiJudgeConfigData> {
+    let model = std::env::var("OPENAI_ROUTER_JUDGE_MODEL").ok()?;
+    let model = model.trim();
+    if model.is_empty() || model == "mock-router-judge" {
+        return None;
+    }
+    Some(OpenAiJudgeConfigData {
+        api_key: api_key.to_string(),
+        model: model.to_string(),
+        endpoint: std::env::var("OPENAI_ROUTER_JUDGE_ENDPOINT")
+            .unwrap_or_else(|_| "https://api.openai.com/v1/responses".to_string()),
+    })
+}
+
 pub fn redact_secret_values_text(value: &str) -> String {
     value
         .split_whitespace()
@@ -364,7 +404,12 @@ mod tests {
     use super::*;
     use catalog_router_core_engine::RouterModeNameData;
     use std::collections::BTreeMap;
+    use std::io::{Read, Write};
+    use std::net::TcpListener;
+    use std::thread;
     use tempfile::tempdir;
+
+    static JUDGE_ENV_LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
 
     #[test]
     fn preview_uses_router_mode() {
@@ -422,6 +467,97 @@ mod tests {
 
         assert_eq!(response.route_label, "cpu_only_debug_preview");
         assert_eq!(response.candidates[0].tool_id, "custom.slack_post");
+    }
+
+    #[tokio::test]
+    async fn judged_route_uses_mock_without_model() {
+        let _guard = JUDGE_ENV_LOCK.lock().await;
+        std::env::remove_var("OPENAI_ROUTER_JUDGE_MODEL");
+        std::env::remove_var("OPENAI_ROUTER_JUDGE_ENDPOINT");
+        let response = route_tools_with_judge(RouteToolsRequestData {
+            dataset_path: Some("/missing/bundled/path".to_string()),
+            catalog_tools: Some(vec![create_candidate_tool_data("custom.slack_post")]),
+            query: "send message to channel".to_string(),
+            recent_context: None,
+            router_mode: RouterModeNameData::SchemaAware,
+            api_key: Some("sk-router-test".to_string()),
+        })
+        .await
+        .expect("mock judged route should run");
+
+        assert_eq!(response.route_label, "judged_route");
+        assert_eq!(
+            response
+                .judge_decision
+                .and_then(|decision| decision.selected_tool_id),
+            Some("custom.slack_post".to_string())
+        );
+    }
+
+    #[tokio::test]
+    async fn judged_route_uses_openai_when_configured() {
+        let _guard = JUDGE_ENV_LOCK.lock().await;
+        let listener = TcpListener::bind("127.0.0.1:0").expect("listener should bind");
+        let endpoint = format!(
+            "http://{}",
+            listener.local_addr().expect("addr should exist")
+        );
+        std::env::set_var("OPENAI_ROUTER_JUDGE_MODEL", "gpt-4.1-mini");
+        std::env::set_var("OPENAI_ROUTER_JUDGE_ENDPOINT", &endpoint);
+        let server = thread::spawn(move || {
+            let (mut stream, _) = listener.accept().expect("request should arrive");
+            let mut request_text = String::new();
+            let mut buffer = [0_u8; 4096];
+            loop {
+                let read = stream.read(&mut buffer).expect("read should succeed");
+                if read == 0 {
+                    break;
+                }
+                request_text.push_str(&String::from_utf8_lossy(&buffer[..read]));
+                if request_text.contains("\r\n\r\n") && request_text.contains("custom.slack_post") {
+                    break;
+                }
+            }
+            let body = serde_json::json!({
+                "output_text": "{\"decision\":\"select_tool\",\"selected_tool_id\":\"custom.slack_post\",\"confidence\":0.77,\"reason\":\"OpenAI adapter selected the uploaded Slack tool\",\"needs_more_metadata\":false}"
+            })
+            .to_string();
+            let response = format!(
+                "HTTP/1.1 200 OK\r\ncontent-type: application/json\r\ncontent-length: {}\r\n\r\n{}",
+                body.len(),
+                body
+            );
+            stream
+                .write_all(response.as_bytes())
+                .expect("response should write");
+            request_text
+        });
+
+        let response = route_tools_with_judge(RouteToolsRequestData {
+            dataset_path: Some("/missing/bundled/path".to_string()),
+            catalog_tools: Some(vec![create_candidate_tool_data("custom.slack_post")]),
+            query: "send message to channel".to_string(),
+            recent_context: None,
+            router_mode: RouterModeNameData::SchemaAware,
+            api_key: Some("sk-router-test".to_string()),
+        })
+        .await
+        .expect("configured OpenAI judged route should run");
+        let request_text = server.join().expect("server should finish");
+        std::env::remove_var("OPENAI_ROUTER_JUDGE_MODEL");
+        std::env::remove_var("OPENAI_ROUTER_JUDGE_ENDPOINT");
+
+        let decision = response
+            .judge_decision
+            .expect("judge decision should exist");
+        assert_eq!(response.route_label, "judged_route");
+        assert_eq!(
+            decision.selected_tool_id,
+            Some("custom.slack_post".to_string())
+        );
+        assert_eq!(decision.confidence, 0.77);
+        assert!(request_text.contains("custom.slack_post"));
+        assert!(!request_text.contains("required_tool_ids"));
     }
 
     #[test]

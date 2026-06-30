@@ -2,7 +2,7 @@
 
 - Task: Implement router MVP executable specs
 - Created: 2026-06-30 19:10:59Z
-- Updated: 2026-06-30 20:40:44Z
+- Updated: 2026-06-30 21:12:41Z
 - Current Phase: Green
 - Status: active
 
@@ -532,3 +532,65 @@ Commit and push the router evidence console implementation
 - cargo clippy --workspace --all-targets -- -D warnings: passing
 - npm run tauri:build: passing from ui package
 - cargo run -p router-cli-command-surface -- compare-routing-modes-metrics --dataset ../../A00-raw-research/benchmarks/tool-routing-subset --report-dir /tmp/tool-router-final-comparison: passing
+
+### Session: 2026-06-30 20:58:45Z
+
+#### Current Phase: Green
+
+#### Tests Written:
+- cli_runs_cpu_preview: passing - run-cpu-preview-only returns cpu_only_debug_preview without judge decision
+- cli_runs_judged_route: passing - route-tools-for-query returns judged_route with mock judge selection
+
+#### Implementation Progress:
+- crates/router-cli-command-surface/Cargo.toml: depends on shared tool-router-tauri-core
+- crates/router-cli-command-surface/src/main.rs: added route command parsing, route request construction, and JSON output
+
+#### Current Focus:
+Add CLI route command surface
+
+#### Next Steps:
+- Audit remaining spec gaps: real OpenAI adapter, searchable benchmark picker, UI progress stages, exact five-card rendering, and judged benchmark scoring
+
+#### Context Notes:
+- Codebase-memory scan /tmp/codex-code-intel/codebase-memory/accio-tools-20260701-022715 and CodeGraphContext narrow DB found run_cli_command_surface and create_route_request_data after the change
+
+#### Performance/Metrics:
+- cargo test -p router-cli-command-surface: passing - 4 tests
+- cargo fmt --all --check: passing
+- cargo test --workspace: passing - 23 Rust tests plus doctests
+- cargo clippy --workspace --all-targets -- -D warnings: passing
+- npm test: passing - 8 UI tests
+- npm run build: passing
+- CLI run-cpu-preview-only smoke: passing with five candidate cards
+- CLI route-tools-for-query smoke: passing with judged_route mock decision
+
+### Session: 2026-06-30 21:12:41Z
+
+#### Current Phase: Green
+
+#### Tests Written:
+- openai_payload_contains_only_compact_candidate_cards: passing - Responses payload includes query/context/top-five compact cards and excludes benchmark gold labels
+- openai_adapter_posts_authorized_payload: passing - local HTTP server receives bearer-authorized compact judge request
+- judged_route_uses_openai_when_configured: passing - route_tools_with_judge uses OpenAI-compatible adapter when model and endpoint are configured
+
+#### Implementation Progress:
+- crates/candidate-judge-openai-adapter/src/lib.rs: added Responses API payload builder, parser, and async reqwest adapter
+- src/lib.rs: added route_tools_with_judge and explicit OPENAI_ROUTER_JUDGE_MODEL/OPENAI_ROUTER_JUDGE_ENDPOINT activation
+- src-tauri/src/commands.rs: route_tools_for_query awaits async judged path
+- crates/router-cli-command-surface/src/main.rs: judged CLI route uses async judged path through a current-thread Tokio runtime
+
+#### Current Focus:
+Wire explicit OpenAI judge adapter
+
+#### Next Steps:
+- Audit remaining spec gaps: searchable benchmark picker, UI progress stages, exact five-card UI assertions, and judged benchmark scoring
+
+#### Context Notes:
+- Codebase-memory scan /tmp/codex-code-intel/codebase-memory/accio-tools-20260701-023659 and CodeGraphContext DB /tmp/codex-code-intel/codegraphcontext/solution01-judge-after-20260701-0310 show judge_candidate_tools_with_openai and route_tools_with_judge symbols
+
+#### Performance/Metrics:
+- cargo fmt --all --check: passing
+- cargo test --workspace: passing - 28 Rust tests plus doctests
+- cargo clippy --workspace --all-targets -- -D warnings: passing
+- npm test && npm run build: passing - 8 UI tests plus Vite build
+- npm run tauri:build: passing - app and dmg bundles produced

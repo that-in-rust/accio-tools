@@ -5,7 +5,7 @@ use tool_router_tauri_core::{
     evaluate_routing_subset_metrics as evaluate_metrics_inner,
     export_diagnostic_logs_text as export_logs_inner,
     export_route_evidence_report as export_report_inner,
-    route_tools_for_query as route_query_inner, run_cpu_preview_only as run_preview_inner,
+    route_tools_with_judge as route_query_inner, run_cpu_preview_only as run_preview_inner,
     validate_judge_api_key as validate_key_inner, AppError, EvaluationPackFileData,
     RouteEvidencePayloadData, RouteToolsRequestData, RouteToolsResponseData,
     RouterAppReadinessData,
@@ -29,7 +29,7 @@ pub async fn run_cpu_preview_only(
 pub async fn route_tools_for_query(
     request: RouteToolsRequestData,
 ) -> Result<RouteToolsResponseData, AppError> {
-    route_query_inner(request)
+    route_query_inner(request).await
 }
 
 #[tauri::command]
