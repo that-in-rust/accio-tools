@@ -12,6 +12,6 @@ connected tools, selects a small relevant subset before the agent reasons over i
 will build the router, a minimal harness to exercise it, and an evaluation that measures
 whether it works.
 
-
+But due to time constraints, I will be focusing on the router and a minimal harness to exercise it. The evaluation will be left for next attempt
 
 ```
