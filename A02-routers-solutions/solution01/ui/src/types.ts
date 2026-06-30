@@ -3,72 +3,102 @@ export type InvokeFunction = <T = unknown>(
   args?: Record<string, unknown>,
 ) => Promise<T>;
 
-export type DownloadTextFunction = (filename: string, content: string) => string | void;
+export type DownloadTextFunction = (
+  filename: string,
+  content: string,
+) => string | void;
 
-export type ReadFileTextFunction = (file: File) => Promise<string>;
+export type RouterModeNameData = "lexical" | "schema_aware" | "hybrid";
 
-export interface AppReadiness {
-  api_key_ready: boolean;
-  storage_ready: boolean;
-  analyze_enabled: boolean;
+export interface RouterAppReadinessData {
+  judge_key_ready: boolean;
+  route_preview_enabled: boolean;
+  judged_route_enabled: boolean;
   model_label: string;
   readiness_message: string;
 }
 
-export interface Finding {
-  finding_id: string;
-  title: string;
-  severity: "High" | "Medium" | "Low";
-  prompt_evidence: string;
-  impact: string;
-  suggested_fix: string;
-  fix_mode: "AutoFixable" | "HumanReviewOnly" | "Backlog";
-  verification_scenario: string;
+export interface ToolCatalogRecordData {
+  id: string;
+  source_tool_id?: string | null;
+  server_id?: string | null;
+  server_name?: string | null;
+  name: string;
+  description: string;
+  input_schema: unknown;
+  tags?: string[];
+  source?: unknown;
+  metadata?: unknown;
 }
 
-export interface FindingGroup {
-  section: "Structure" | "ToolGaps" | "WorkflowOrder" | "SafetyPhi" | "Verification";
-  findings: Finding[];
+export interface GradedRelevanceItemData {
+  tool_id: string;
+  relevance: number;
 }
 
-export interface AnalysisResult {
-  prompt_version_name: string;
-  model_label: string;
-  finding_groups: FindingGroup[];
-  normalized_prompt: unknown;
-  action_log: string[];
+export interface RouteQueryInputData {
+  id: string;
+  query: string;
+  required_tool_ids: string[];
+  should_route: boolean;
+  graded_relevance: GradedRelevanceItemData[];
+  source_expected_tools: string[];
+  failure_modes: string[];
 }
 
-export interface ApplySelectedFixesResponse {
-  result: {
-    candidate: {
-      updated_prompt_json: string;
-      applied_finding_ids: string[];
-      patch_summary: string;
-    };
-    model_label: string;
-  };
-  updated_version_name: string;
-  action_log: string[];
+export interface EvaluationPackFileData {
+  filename: string;
+  content: string;
 }
 
-export interface ReverifyFindingStatus {
-  finding_id: string;
-  status: "Fixed" | "StillFailing" | "Unknown";
-  status_label: string;
-  rationale: string;
+export interface CandidateEvidenceCardData {
+  rank: number;
+  score: number;
+  tool_id: string;
+  matched_terms: string[];
+  matched_fields: string[];
+  capability_match: string[];
+  risk: string;
+  why_matched: string;
+  signal_contributions: Record<string, number>;
 }
 
-export interface ReverifyPromptResult {
-  prompt_version_name: string;
-  model_label: string;
-  finding_statuses: ReverifyFindingStatus[];
-  action_log: string[];
+export interface JudgeDecisionOutputData {
+  decision: string;
+  selected_tool_id?: string | null;
+  confidence: number;
+  reason: string;
 }
 
-export interface VerificationExport {
-  markdown_report: string;
-  updated_prompt_json: string;
-  deterministic_checks: unknown[];
-  semantic_checks: unknown[];
+export interface RouteToolsRequestData {
+  dataset_path?: string | null;
+  query: string;
+  recent_context?: string | null;
+  router_mode: RouterModeNameData;
+  api_key?: string | null;
+}
+
+export interface RouteToolsResponseData {
+  route_label: string;
+  candidates: CandidateEvidenceCardData[];
+  judge_decision?: JudgeDecisionOutputData | null;
+}
+
+export interface RoutingMetricsRequestData {
+  dataset_path?: string | null;
+  router_mode: RouterModeNameData;
+  max_k: number;
+  threshold: number;
+}
+
+export interface MetricReportOutputData {
+  queries: number;
+  route_required_queries: number;
+  abstention_queries: number;
+  recall_at_k: Record<string, number>;
+  mrr: number;
+  ndcg_at_10: number;
+  abstention_accuracy: number;
+  average_selected_candidate_count: number;
+  router_mode: RouterModeNameData;
 }

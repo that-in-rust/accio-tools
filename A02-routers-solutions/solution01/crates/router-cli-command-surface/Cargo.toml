@@ -1,0 +1,9 @@
+[package]
+name = "router-cli-command-surface"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+benchmark-eval-metrics-runner = { path = "../benchmark-eval-metrics-runner" }
+catalog-router-core-engine = { path = "../catalog-router-core-engine" }
+serde_json = "1"

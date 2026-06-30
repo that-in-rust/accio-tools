@@ -1,3 +1,3 @@
 fn main() {
-    pie_tauri_app::run();
+    tool_router_tauri_app::run();
 }

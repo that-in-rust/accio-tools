@@ -1,995 +1,778 @@
 import type {
-  AnalysisResult,
-  AppReadiness,
-  ApplySelectedFixesResponse,
+  CandidateEvidenceCardData,
   DownloadTextFunction,
-  FindingGroup,
+  EvaluationPackFileData,
   InvokeFunction,
-  ReadFileTextFunction,
-  ReverifyPromptResult,
+  MetricReportOutputData,
+  RouteQueryInputData,
+  RouteToolsRequestData,
+  RouteToolsResponseData,
+  RouterAppReadinessData,
+  RouterModeNameData,
+  ToolCatalogRecordData,
 } from "./types";
 
 export type { InvokeFunction };
 
-interface PieAppOptions {
+interface RouterWorkbenchOptions {
   downloadText?: DownloadTextFunction;
-  readFileText?: ReadFileTextFunction;
 }
 
-type ApiKeyStatus = "idle" | "validating" | "accepted" | "failed";
-type AnalysisStatus = "idle" | "analyzing" | "complete" | "failed";
-type PatchStatus = "idle" | "applying";
-type ReverifyStatus = "idle" | "running" | "complete" | "failed";
+type QuerySourceModeData = "benchmark" | "custom";
+type AsyncActionStatusData = "idle" | "running" | "complete" | "failed";
 
-interface PieState {
+interface RouterWorkbenchStateData {
   apiKey: string;
-  apiKeyStatus: ApiKeyStatus;
-  analysisStatus: AnalysisStatus;
-  analysisProgress: number;
-  analysisStage: string;
-  readiness: AppReadiness;
-  promptFilename: string;
-  promptJson: string;
-  analysis: AnalysisResult | null;
-  reverifySourceAnalysis: AnalysisResult | null;
-  reverifyResult: ReverifyPromptResult | null;
-  reverifyStatus: ReverifyStatus;
-  updatedPromptJson: string;
-  updatedVersionName: string;
-  patchStatus: PatchStatus;
+  readiness: RouterAppReadinessData;
+  keyStatus: AsyncActionStatusData;
+  packStatus: AsyncActionStatusData;
+  previewStatus: AsyncActionStatusData;
+  judgedStatus: AsyncActionStatusData;
+  metricsStatus: AsyncActionStatusData;
+  routerMode: RouterModeNameData;
+  querySource: QuerySourceModeData;
+  selectedQueryId: string;
+  customQuery: string;
+  recentContext: string;
+  tools: ToolCatalogRecordData[];
+  queries: RouteQueryInputData[];
+  routeResponse: RouteToolsResponseData | null;
+  metricsReport: MetricReportOutputData | null;
   exportMessage: string;
-  patchMessage: string;
-  activityLog: string[];
   errorMessage: string;
+  activityLog: string[];
 }
 
-const defaultReadiness: AppReadiness = {
-  api_key_ready: false,
-  storage_ready: false,
-  analyze_enabled: false,
-  model_label: "Model: gpt-5.4-mini",
-  readiness_message: "Checking readiness.",
+const routerModeLabelsData: Record<RouterModeNameData, string> = {
+  lexical: "Lexical BM25",
+  schema_aware: "Schema-aware BM25",
+  hybrid: "Hybrid RRF",
 };
 
-export function createPieApp(
+const defaultReadinessData: RouterAppReadinessData = {
+  judge_key_ready: false,
+  route_preview_enabled: true,
+  judged_route_enabled: false,
+  model_label: "mock-router-judge",
+  readiness_message: "CPU preview is available; judged route needs a key.",
+};
+
+export function createRouterWorkbenchApp(
   root: HTMLElement,
   invoke: InvokeFunction,
-  options: PieAppOptions = {},
+  options: RouterWorkbenchOptions = {},
 ) {
-  const state: PieState = {
-    apiKey: "",
-    apiKeyStatus: "idle",
-    analysisStatus: "idle",
-    analysisProgress: 0,
-    analysisStage: "Waiting for prompt.",
-    readiness: defaultReadiness,
-    promptFilename: "",
-    promptJson: "",
-    analysis: null,
-    reverifySourceAnalysis: null,
-    reverifyResult: null,
-    reverifyStatus: "idle",
-    updatedPromptJson: "",
-    updatedVersionName: "",
-    patchStatus: "idle",
-    exportMessage: "",
-    patchMessage: "",
-    activityLog: ["Opened PIE."],
-    errorMessage: "",
-  };
-
+  const state = createInitialStateData();
   const downloadText = options.downloadText ?? downloadTextInBrowser;
-  const readFileText = options.readFileText ?? ((file: File) => file.text());
-  let analysisProgressTimer: ReturnType<typeof window.setInterval> | null = null;
-
-  const refreshReadiness = async () => {
-    try {
-      state.readiness = await invoke<AppReadiness>("get_app_readiness", {
-        apiKey: state.apiKey || null,
-      });
-      state.apiKeyStatus = state.readiness.api_key_ready ? "accepted" : "idle";
-      pushActivityMessage(state.readiness.readiness_message);
-    } catch (error) {
-      const message = errorToMessage(error);
-      state.errorMessage = message;
-      markReadinessFailed(message);
-    }
-    render();
-  };
-
-  const validateKey = async () => {
-    if (!state.apiKey || state.apiKeyStatus === "validating") return;
-    try {
-      state.errorMessage = "";
-      state.apiKeyStatus = "validating";
-      state.readiness = {
-        ...state.readiness,
-        api_key_ready: false,
-        analyze_enabled: false,
-        readiness_message: "Validating OpenAI key...",
-      };
-      pushActivityMessage("Validating OpenAI key.");
-      render();
-
-      state.readiness = await invoke<AppReadiness>("validate_api_key", {
-        apiKey: state.apiKey,
-      });
-      state.apiKeyStatus = state.readiness.api_key_ready ? "accepted" : "failed";
-      pushActivityMessage(state.readiness.readiness_message);
-    } catch (error) {
-      const message = errorToMessage(error);
-      state.errorMessage = message;
-      markReadinessFailed(message);
-    }
-    render();
-  };
-
-  const markReadinessFailed = (message: string) => {
-    state.apiKeyStatus = "failed";
-    state.readiness = {
-      ...state.readiness,
-      api_key_ready: false,
-      analyze_enabled: false,
-      readiness_message: "OpenAI readiness failed.",
-    };
-    pushActivityMessage(`Readiness check failed: ${message}`);
-  };
-
-  const pushActivityMessage = (message: string) => {
-    if (state.activityLog.at(-1) !== message) {
-      state.activityLog.push(message);
-    }
-  };
-
-  const analyzePrompt = async (command = "analyze_prompt") => {
-    try {
-      state.errorMessage = "";
-      state.analysisStatus = "analyzing";
-      state.analysisProgress = 12;
-      state.analysisStage = "Parsing prompt JSON.";
-      pushActivityMessage("Analyzing prompt.");
-      startAnalysisProgressTicker();
-      render();
-
-      state.analysis = await invoke<AnalysisResult>(command, {
-        request: {
-          filename: state.promptFilename,
-          prompt_json: state.promptJson,
-          api_key: state.apiKey,
-        },
-      });
-      stopAnalysisProgressTicker();
-      state.analysisStatus = "complete";
-      state.analysisProgress = 100;
-      state.analysisStage = "Analysis complete.";
-      state.reverifySourceAnalysis = null;
-      state.reverifyResult = null;
-      state.reverifyStatus = "idle";
-      state.analysis.action_log.forEach(pushActivityMessage);
-    } catch (error) {
-      stopAnalysisProgressTicker();
-      state.analysisStatus = "failed";
-      state.analysisStage = "Analysis failed.";
-      state.errorMessage = errorToMessage(error);
-    }
-    render();
-  };
-
-  const startAnalysisProgressTicker = () => {
-    stopAnalysisProgressTicker();
-    const stages = [
-      { progress: 28, label: "Normalizing prompt sections." },
-      { progress: 46, label: "Checking tool and workflow risks." },
-      { progress: 64, label: "Running LLM Judge." },
-      { progress: 82, label: "Preparing finding groups." },
-      { progress: 92, label: "Waiting for model response." },
-    ];
-    let index = 0;
-    analysisProgressTimer = window.setInterval(() => {
-      const next = stages[Math.min(index, stages.length - 1)];
-      state.analysisProgress = Math.max(state.analysisProgress, next.progress);
-      state.analysisStage = next.label;
-      index += 1;
-      render();
-    }, 900);
-  };
-
-  const stopAnalysisProgressTicker = () => {
-    if (analysisProgressTimer !== null) {
-      window.clearInterval(analysisProgressTimer);
-      analysisProgressTimer = null;
-    }
-  };
-
-  const exportFindings = async () => {
-    if (!state.analysis) return;
-    try {
-      const content = await invoke<string>("export_findings", {
-        findingGroups: state.analysis.finding_groups,
-      });
-      const filename = findingsExportFilename(state.analysis.prompt_version_name);
-      const target = downloadText(filename, content);
-      state.exportMessage = downloadCompletionMessage("findings", filename, target);
-      pushActivityMessage(state.exportMessage);
-    } catch (error) {
-      state.errorMessage = errorToMessage(error);
-    }
-    render();
-  };
-
-  const exportDiagnosticLogs = async () => {
-    try {
-      state.errorMessage = "";
-      const content = await invoke<string>("export_diagnostic_logs");
-      downloadText("pie-diagnostic-log.txt", content);
-      pushActivityMessage("Downloaded diagnostic logs.");
-    } catch (error) {
-      state.errorMessage = errorToMessage(error);
-    }
-    render();
-  };
-
-  const applyRecommendedPatch = async () => {
-    if (!state.analysis || state.patchStatus === "applying") return;
-    const recommended_finding_ids = recommendedPatchFindingIds(state.analysis);
-    if (recommended_finding_ids.length === 0) return;
-
-    try {
-      state.errorMessage = "";
-      state.patchStatus = "applying";
-      state.patchMessage = "Applying recommended patch.";
-      render();
-      const patch = await invoke<ApplySelectedFixesResponse>("apply_selected_fixes", {
-        request: {
-          original_prompt_json: state.promptJson,
-          finding_groups: state.analysis.finding_groups,
-          selected_finding_ids: recommended_finding_ids,
-          api_key: state.apiKey,
-        },
-      });
-      state.updatedPromptJson = patch.result.candidate.updated_prompt_json;
-      state.updatedVersionName = patch.updated_version_name;
-      state.patchMessage = `Patch applied: ${patch.result.candidate.patch_summary}`;
-      patch.action_log.forEach(pushActivityMessage);
-      pushActivityMessage("Patch applied.");
-    } catch (error) {
-      state.errorMessage = errorToMessage(error);
-      state.updatedPromptJson = "";
-      state.updatedVersionName = "";
-      state.patchMessage = "";
-    } finally {
-      state.patchStatus = "idle";
-    }
-    render();
-  };
-
-  const reverifyPrompt = async () => {
-    const sourceAnalysis = state.analysis ?? state.reverifySourceAnalysis;
-    if (!sourceAnalysis || !state.updatedPromptJson || state.reverifyStatus === "running") {
-      return;
-    }
-
-    try {
-      state.errorMessage = "";
-      state.reverifyStatus = "running";
-      state.reverifyResult = null;
-      state.reverifySourceAnalysis = sourceAnalysis;
-      state.analysis = null;
-      pushActivityMessage("Re-verifying updated prompt.");
-      render();
-
-      state.reverifyResult = await invoke<ReverifyPromptResult>("reverify_prompt", {
-        request: {
-          api_key: state.apiKey,
-          original_prompt_json: state.promptJson,
-          updated_prompt_json: state.updatedPromptJson,
-          previous_finding_groups: sourceAnalysis.finding_groups,
-          updated_version_name: state.updatedVersionName || "updated_prompt",
-        },
-      });
-      state.reverifyStatus = "complete";
-      state.reverifyResult.action_log.forEach(pushActivityMessage);
-    } catch (error) {
-      state.reverifyStatus = "failed";
-      state.errorMessage = errorToMessage(error);
-    }
-    render();
-  };
-
-  const handlePromptFile = async (file: File | undefined) => {
-    if (!file) return;
-    try {
-      state.promptFilename = file.name;
-      state.promptJson = await readFileText(file);
-      pushActivityMessage(`Uploaded ${file.name}.`);
-    } catch (error) {
-      state.errorMessage = errorToMessage(error);
-    }
-    render();
-  };
-
-  const bindEvents = () => {
-    root.querySelector<HTMLInputElement>("#api-key")?.addEventListener("input", (event) => {
-      state.apiKey = (event.currentTarget as HTMLInputElement).value;
-      state.apiKeyStatus = "idle";
-      if (state.readiness.api_key_ready || state.readiness.analyze_enabled) {
-        state.readiness = {
-          ...state.readiness,
-          api_key_ready: false,
-          analyze_enabled: false,
-          readiness_message: "API key changed. Validate again.",
-        };
-      }
-      render();
-    });
-    root.querySelector<HTMLButtonElement>("#validate-key")?.addEventListener("click", () => {
-      void validateKey();
-    });
-    root.querySelector<HTMLInputElement>("#prompt-file")?.addEventListener("change", (event) => {
-      void handlePromptFile((event.currentTarget as HTMLInputElement).files?.[0]);
-    });
-    root.querySelector<HTMLButtonElement>("#analyze-prompt")?.addEventListener("click", () => {
-      void analyzePrompt();
-    });
-    root.querySelector<HTMLButtonElement>("#download-findings")?.addEventListener("click", () => {
-      void exportFindings();
-    });
-    root.querySelector<HTMLButtonElement>("#download-logs")?.addEventListener("click", () => {
-      void exportDiagnosticLogs();
-    });
-    root.querySelector<HTMLButtonElement>("#apply-recommended")?.addEventListener("click", () => {
-      void applyRecommendedPatch();
-    });
-    root.querySelector<HTMLButtonElement>("#download-updated")?.addEventListener("click", () => {
-      if (state.updatedPromptJson) {
-        const filename = `${state.updatedVersionName || "updated_prompt"}.json`;
-        const target = downloadText(filename, state.updatedPromptJson);
-        state.exportMessage = downloadCompletionMessage("updated prompt", filename, target);
-        pushActivityMessage(state.exportMessage);
-        render();
-      }
-    });
-    root.querySelector<HTMLButtonElement>("#reverify-prompt")?.addEventListener("click", () => {
-      void reverifyPrompt();
-    });
-  };
 
   const render = () => {
-    const isAnalyzing = state.analysisStatus === "analyzing";
-    const isBusy = isAnalyzing || state.patchStatus === "applying" || state.reverifyStatus === "running";
-    const canAnalyze = state.readiness.analyze_enabled && Boolean(state.promptJson) && !isBusy;
-    const canApply =
-      Boolean(state.analysis) &&
-      recommendedPatchFindingIds(state.analysis).length > 0 &&
-      state.patchStatus !== "applying";
-    const readiness = workspaceReadinessCopy(state);
-    root.innerHTML = `
-      <section class="app-shell">
-        <section class="workbench">
-          <header class="workspace-header">
-            <div class="workspace-brand">
-              <p class="eyebrow">Prompt Iteration Engine</p>
-              <h1>PIE</h1>
-              <p class="hero-copy">Versioned prompt review for healthcare voice-agent operators.</p>
-            </div>
-            <section class="workspace-status workspace-status--${readiness.tone}">
-              <div class="workspace-chip">
-                <span class="status-dot" aria-hidden="true"></span>
-                <strong>${escapeHtml(readiness.title)}</strong>
-              </div>
-              <p>${escapeHtml(readiness.detail)}</p>
-              <dl class="workspace-meta">
-                <div>
-                  <dt>Model</dt>
-                  <dd>${escapeHtml(state.readiness.model_label)}</dd>
-                </div>
-                <div>
-                  <dt>Storage</dt>
-                  <dd>${state.readiness.storage_ready ? "Ready" : "Blocked"}</dd>
-                </div>
-              </dl>
-            </section>
-          </header>
-
-          ${renderCredentialStrip(state)}
-
-          <section class="prompt-input prompt-panel">
-            <header class="panel-header">
-              <div>
-                <p class="eyebrow">Prompt workspace</p>
-                <h2>Assignment Prompt</h2>
-                <p>Upload the assignment prompt JSON, then run the five-part judge.</p>
-              </div>
-            </header>
-            <div class="prompt-actions">
-              <label class="file-picker" for="prompt-file">
-                <span>Select Prompt JSON</span>
-                <input id="prompt-file" type="file" accept="application/json,.json" />
-              </label>
-              <div class="file-badge ${state.promptFilename ? "file-badge--loaded" : ""}">
-                ${state.promptFilename ? `Loaded ${escapeHtml(state.promptFilename)}` : "No prompt loaded"}
-              </div>
-              <button id="analyze-prompt" class="primary-action ${isAnalyzing ? "is-loading" : ""}" ${canAnalyze ? "" : "disabled"}>
-                ${isAnalyzing ? `<span class="spinner" aria-hidden="true"></span>Analyzing` : "Analyze Prompt"}
-              </button>
-            </div>
-            ${renderAnalysisProgress(state)}
-          </section>
-
-          ${state.errorMessage ? `<section class="error">${escapeHtml(state.errorMessage)}</section>` : ""}
-          ${renderUpdatedPrompt(state)}
-          ${renderFindings(state)}
-        </section>
-
-        <aside class="activity-log">
-          <header class="activity-header">
-            <h2>Activity</h2>
-            <button id="download-logs" class="secondary-action">Download Logs</button>
-          </header>
-          <ol>${state.activityLog
-            .slice(-8)
-            .map((item) => `<li>${escapeHtml(item)}</li>`)
-            .join("")}</ol>
-        </aside>
-      </section>
-    `;
-
-    root.querySelector<HTMLButtonElement>("#download-findings")?.toggleAttribute(
-      "disabled",
-      !state.analysis,
-    );
-    root.querySelector<HTMLButtonElement>("#apply-recommended")?.toggleAttribute("disabled", !canApply);
-    root.querySelector<HTMLButtonElement>("#reverify-prompt")?.toggleAttribute(
-      "disabled",
-      !state.updatedPromptJson || isBusy,
-    );
-    bindEvents();
+    root.innerHTML = renderRouterWorkbenchView(state);
+    bindWorkbenchEventHandlers(root, state, invoke, downloadText, render);
   };
 
   render();
-  void refreshReadiness();
+  void loadEvaluationPackFiles(state, invoke, render);
 }
 
-function renderCredentialStrip(state: PieState) {
-  const status = keyStatusCopy(state);
-  const isValidating = state.apiKeyStatus === "validating";
-  const buttonLabel = isValidating
-    ? "Validating"
-    : state.apiKeyStatus === "accepted"
-      ? "Validate Again"
-      : "Validate Key";
+function createInitialStateData(): RouterWorkbenchStateData {
+  return {
+    apiKey: "",
+    readiness: defaultReadinessData,
+    keyStatus: "idle",
+    packStatus: "idle",
+    previewStatus: "idle",
+    judgedStatus: "idle",
+    metricsStatus: "idle",
+    routerMode: "lexical",
+    querySource: "benchmark",
+    selectedQueryId: "",
+    customQuery: "",
+    recentContext: "",
+    tools: [],
+    queries: [],
+    routeResponse: null,
+    metricsReport: null,
+    exportMessage: "",
+    errorMessage: "",
+    activityLog: ["Opened router workbench."],
+  };
+}
 
+async function loadEvaluationPackFiles(
+  state: RouterWorkbenchStateData,
+  invoke: InvokeFunction,
+  render: () => void,
+) {
+  try {
+    state.packStatus = "running";
+    pushActivityLogEntry(state, "Loading bundled evaluation pack.");
+    render();
+    const files = await invoke<EvaluationPackFileData[]>(
+      "download_evaluation_pack_files",
+      { datasetPath: null },
+    );
+    const toolsFile = files.find((file) => file.filename === "tools.json");
+    const queriesFile = files.find((file) => file.filename === "queries.json");
+    if (!toolsFile || !queriesFile) {
+      throw new Error("Evaluation pack did not include tools.json and queries.json.");
+    }
+    state.tools = JSON.parse(toolsFile.content) as ToolCatalogRecordData[];
+    state.queries = JSON.parse(queriesFile.content) as RouteQueryInputData[];
+    state.selectedQueryId = state.queries[0]?.id ?? "";
+    state.packStatus = "complete";
+    pushActivityLogEntry(
+      state,
+      `Loaded ${state.tools.length} tools and ${state.queries.length} queries.`,
+    );
+  } catch (error) {
+    state.packStatus = "failed";
+    state.errorMessage = errorToMessageText(error);
+  }
+  render();
+}
+
+function bindWorkbenchEventHandlers(
+  root: HTMLElement,
+  state: RouterWorkbenchStateData,
+  invoke: InvokeFunction,
+  downloadText: DownloadTextFunction,
+  render: () => void,
+) {
+  queryElementById<HTMLInputElement>(root, "judge-key-input")?.addEventListener(
+    "input",
+    (event) => {
+      state.apiKey = (event.target as HTMLInputElement).value;
+      state.keyStatus = "idle";
+      state.readiness = {
+        ...state.readiness,
+        judge_key_ready: false,
+        judged_route_enabled: false,
+        readiness_message: "CPU preview is available; judged route needs a key.",
+      };
+      render();
+    },
+  );
+
+  queryElementById<HTMLButtonElement>(root, "validate-key-button")?.addEventListener(
+    "click",
+    () => {
+      void validateJudgeSessionKey(state, invoke, render);
+    },
+  );
+
+  root.querySelectorAll<HTMLButtonElement>("[data-query-source]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const source = button.dataset.querySource as QuerySourceModeData;
+      selectQuerySourceOption(state, source);
+      render();
+    });
+  });
+
+  queryElementById<HTMLSelectElement>(root, "benchmark-query-select")?.addEventListener(
+    "change",
+    (event) => {
+      state.selectedQueryId = (event.target as HTMLSelectElement).value;
+      render();
+    },
+  );
+
+  queryElementById<HTMLTextAreaElement>(root, "custom-query-input")?.addEventListener(
+    "input",
+    (event) => {
+      state.customQuery = (event.target as HTMLTextAreaElement).value;
+      render();
+    },
+  );
+
+  queryElementById<HTMLTextAreaElement>(root, "recent-context-input")?.addEventListener(
+    "input",
+    (event) => {
+      state.recentContext = (event.target as HTMLTextAreaElement).value;
+    },
+  );
+
+  root.querySelectorAll<HTMLButtonElement>("[data-router-mode]").forEach((button) => {
+    button.addEventListener("click", () => {
+      state.routerMode = button.dataset.routerMode as RouterModeNameData;
+      render();
+    });
+  });
+
+  queryElementById<HTMLButtonElement>(root, "cpu-preview-button")?.addEventListener(
+    "click",
+    () => {
+      void runCpuPreviewOnly(state, invoke, render);
+    },
+  );
+
+  queryElementById<HTMLButtonElement>(root, "judged-route-button")?.addEventListener(
+    "click",
+    () => {
+      void routeToolsForQuery(state, invoke, render);
+    },
+  );
+
+  queryElementById<HTMLButtonElement>(root, "metrics-run-button")?.addEventListener(
+    "click",
+    () => {
+      void evaluateRoutingSubsetMetrics(state, invoke, render);
+    },
+  );
+
+  queryElementById<HTMLButtonElement>(root, "download-pack-button")?.addEventListener(
+    "click",
+    () => {
+      void downloadEvaluationPackFiles(state, invoke, downloadText, render);
+    },
+  );
+
+  queryElementById<HTMLButtonElement>(root, "export-evidence-button")?.addEventListener(
+    "click",
+    () => {
+      void exportRouteEvidenceReport(state, invoke, downloadText, render);
+    },
+  );
+
+  queryElementById<HTMLButtonElement>(root, "export-logs-button")?.addEventListener(
+    "click",
+    () => {
+      void exportDiagnosticLogsText(state, invoke, downloadText, render);
+    },
+  );
+}
+
+async function validateJudgeSessionKey(
+  state: RouterWorkbenchStateData,
+  invoke: InvokeFunction,
+  render: () => void,
+) {
+  if (state.keyStatus === "running") return;
+  try {
+    state.errorMessage = "";
+    state.keyStatus = "running";
+    pushActivityLogEntry(state, "Validating judge key.");
+    render();
+    state.readiness = await invoke<RouterAppReadinessData>(
+      "validate_judge_api_key",
+      { apiKey: state.apiKey || null },
+    );
+    state.keyStatus = state.readiness.judge_key_ready ? "complete" : "failed";
+    pushActivityLogEntry(state, state.readiness.readiness_message);
+  } catch (error) {
+    state.keyStatus = "failed";
+    state.errorMessage = errorToMessageText(error);
+  }
+  render();
+}
+
+function selectQuerySourceOption(
+  state: RouterWorkbenchStateData,
+  source: QuerySourceModeData,
+) {
+  state.querySource = source;
+  state.routeResponse = null;
+  state.errorMessage = "";
+  pushActivityLogEntry(
+    state,
+    source === "benchmark" ? "Using benchmark query." : "Using custom query.",
+  );
+}
+
+async function runCpuPreviewOnly(
+  state: RouterWorkbenchStateData,
+  invoke: InvokeFunction,
+  render: () => void,
+) {
+  if (!canRunPreviewNow(state) || state.previewStatus === "running") return;
+  try {
+    state.errorMessage = "";
+    state.previewStatus = "running";
+    state.routeResponse = null;
+    pushActivityLogEntry(state, `Running ${routerModeLabelsData[state.routerMode]} preview.`);
+    render();
+    state.routeResponse = await invoke<RouteToolsResponseData>(
+      "run_cpu_preview_only",
+      { request: createRouteRequestData(state, false) },
+    );
+    state.previewStatus = "complete";
+    pushActivityLogEntry(state, "CPU preview returned top five candidates.");
+  } catch (error) {
+    state.previewStatus = "failed";
+    state.errorMessage = errorToMessageText(error);
+  }
+  render();
+}
+
+async function routeToolsForQuery(
+  state: RouterWorkbenchStateData,
+  invoke: InvokeFunction,
+  render: () => void,
+) {
+  if (!canRunJudgedRoute(state) || state.judgedStatus === "running") return;
+  try {
+    state.errorMessage = "";
+    state.judgedStatus = "running";
+    state.routeResponse = null;
+    pushActivityLogEntry(state, "Running judged route.");
+    render();
+    state.routeResponse = await invoke<RouteToolsResponseData>(
+      "route_tools_for_query",
+      { request: createRouteRequestData(state, true) },
+    );
+    state.judgedStatus = "complete";
+    pushActivityLogEntry(state, "Judge selected top route result.");
+  } catch (error) {
+    state.judgedStatus = "failed";
+    state.errorMessage = errorToMessageText(error);
+  }
+  render();
+}
+
+async function evaluateRoutingSubsetMetrics(
+  state: RouterWorkbenchStateData,
+  invoke: InvokeFunction,
+  render: () => void,
+) {
+  if (state.metricsStatus === "running") return;
+  try {
+    state.errorMessage = "";
+    state.metricsStatus = "running";
+    pushActivityLogEntry(state, `Evaluating ${routerModeLabelsData[state.routerMode]}.`);
+    render();
+    state.metricsReport = await invoke<MetricReportOutputData>(
+      "evaluate_routing_subset_metrics",
+      {
+        request: {
+          dataset_path: null,
+          router_mode: state.routerMode,
+          max_k: 10,
+          threshold: 2,
+        },
+      },
+    );
+    state.metricsStatus = "complete";
+    pushActivityLogEntry(state, "Benchmark metrics completed.");
+  } catch (error) {
+    state.metricsStatus = "failed";
+    state.errorMessage = errorToMessageText(error);
+  }
+  render();
+}
+
+async function downloadEvaluationPackFiles(
+  state: RouterWorkbenchStateData,
+  invoke: InvokeFunction,
+  downloadText: DownloadTextFunction,
+  render: () => void,
+) {
+  try {
+    state.errorMessage = "";
+    const files = await invoke<EvaluationPackFileData[]>(
+      "download_evaluation_pack_files",
+      { datasetPath: null },
+    );
+    files.forEach((file) => downloadText(file.filename, file.content));
+    state.exportMessage = `Downloaded ${files.length} benchmark fixture files.`;
+    pushActivityLogEntry(state, state.exportMessage);
+  } catch (error) {
+    state.errorMessage = errorToMessageText(error);
+  }
+  render();
+}
+
+async function exportRouteEvidenceReport(
+  state: RouterWorkbenchStateData,
+  invoke: InvokeFunction,
+  downloadText: DownloadTextFunction,
+  render: () => void,
+) {
+  if (!state.routeResponse) return;
+  try {
+    state.errorMessage = "";
+    const content = await invoke<string>("export_route_evidence_report", {
+      response: state.routeResponse,
+    });
+    downloadText("tool-router-evidence-report.md", content);
+    state.exportMessage = "Downloaded route evidence report.";
+    pushActivityLogEntry(state, state.exportMessage);
+  } catch (error) {
+    state.errorMessage = errorToMessageText(error);
+  }
+  render();
+}
+
+async function exportDiagnosticLogsText(
+  state: RouterWorkbenchStateData,
+  invoke: InvokeFunction,
+  downloadText: DownloadTextFunction,
+  render: () => void,
+) {
+  try {
+    state.errorMessage = "";
+    const content = await invoke<string>("export_diagnostic_logs_text");
+    downloadText("tool-router-diagnostic-log.txt", content);
+    state.exportMessage = "Downloaded diagnostic log.";
+    pushActivityLogEntry(state, state.exportMessage);
+  } catch (error) {
+    state.errorMessage = errorToMessageText(error);
+  }
+  render();
+}
+
+function createRouteRequestData(
+  state: RouterWorkbenchStateData,
+  includeKey: boolean,
+): RouteToolsRequestData {
+  return {
+    dataset_path: null,
+    query: getActiveQueryTextValue(state),
+    recent_context: state.recentContext.trim() || null,
+    router_mode: state.routerMode,
+    api_key: includeKey ? state.apiKey.trim() || null : null,
+  };
+}
+
+function getActiveQueryTextValue(state: RouterWorkbenchStateData): string {
+  if (state.querySource === "custom") {
+    return state.customQuery.trim();
+  }
+  return getSelectedQueryRecordData(state)?.query ?? "";
+}
+
+function getSelectedQueryRecordData(
+  state: RouterWorkbenchStateData,
+): RouteQueryInputData | undefined {
+  return state.queries.find((query) => query.id === state.selectedQueryId);
+}
+
+function getFilteredQueriesList(
+  state: RouterWorkbenchStateData,
+): RouteQueryInputData[] {
+  return state.queries.slice(0, 50);
+}
+
+function canRunPreviewNow(state: RouterWorkbenchStateData): boolean {
+  return Boolean(getActiveQueryTextValue(state)) && state.packStatus === "complete";
+}
+
+function canRunJudgedRoute(state: RouterWorkbenchStateData): boolean {
+  return canRunPreviewNow(state) && state.readiness.judged_route_enabled;
+}
+
+function renderRouterWorkbenchView(state: RouterWorkbenchStateData): string {
   return `
-    <section class="session-card" aria-label="API key setup">
-      <header class="session-header">
+    <main class="router-shell">
+      <section class="router-main">
+        <header class="workspace-header workspace-header--router">
+          <div>
+            <p class="eyebrow">Tool Routing MVP</p>
+            <h1>Evaluate Inquiry</h1>
+            <p class="hero-copy">CPU routers shortlist top five tools. A cheap judge reviews that evidence and returns one route or abstains.</p>
+          </div>
+          <dl class="workspace-meta">
+            <div><dt>Tools</dt><dd>${state.tools.length || "..."}</dd></div>
+            <div><dt>Queries</dt><dd>${state.queries.length || "..."}</dd></div>
+            <div><dt>Mode</dt><dd>${routerModeLabelsData[state.routerMode]}</dd></div>
+            <div><dt>Judge</dt><dd>${state.readiness.judge_key_ready ? "Ready" : "Preview only"}</dd></div>
+          </dl>
+        </header>
+        ${renderJudgeKeyCard(state)}
+        ${renderEvaluationPackCard(state)}
+        ${renderQuerySourcePanel(state)}
+        ${renderRouterModePanel(state)}
+        ${renderRouteActionPanel(state)}
+        ${renderRouteResultPanel(state)}
+        ${renderBenchmarkHealthPanel(state)}
+        ${state.errorMessage ? `<section class="error" role="alert">${escapeHtmlText(state.errorMessage)}</section>` : ""}
+      </section>
+      ${renderActivityLogPanel(state)}
+    </main>
+  `;
+}
+
+function renderJudgeKeyCard(state: RouterWorkbenchStateData): string {
+  const keyLabel =
+    state.keyStatus === "running"
+      ? "Validating"
+      : state.readiness.judge_key_ready
+        ? "Validate Again"
+        : "Validate Key";
+  return `
+    <section class="session-card">
+      <div class="section-title-row">
         <div>
-          <p class="eyebrow">Session key</p>
-          <h2>OpenAI API key</h2>
+          <h2>Judge Session</h2>
+          <p>CPU preview stays available without a key. Judged route unlocks after validation.</p>
         </div>
-        <p class="session-note">Kept in memory for this session only. Never exported or stored in prompt versions.</p>
-      </header>
-      <div class="session-controls">
-        <label class="session-input">OpenAI API key
-          <input id="api-key" type="password" value="${escapeAttribute(state.apiKey)}" autocomplete="off" />
-        </label>
-        <button id="validate-key" class="validate-button ${isValidating ? "is-loading" : ""}" ${
-          state.apiKey && !isValidating ? "" : "disabled"
-        }>
-          ${isValidating ? `<span class="spinner" aria-hidden="true"></span>` : ""}
-          ${buttonLabel}
-        </button>
+        <span class="status-pill">${escapeHtmlText(state.readiness.model_label)}</span>
       </div>
-      <div class="session-foot">
-        <div class="key-status key-status--${status.tone}" role="status">
-          <span class="status-dot" aria-hidden="true"></span>
-          <span>
-            <strong>${escapeHtml(status.title)}</strong>
-            <small>${escapeHtml(status.detail)}</small>
-          </span>
+      <div class="session-controls">
+        <label class="field-stack" for="judge-key-input">
+          <span>OpenAI API key</span>
+          <input id="judge-key-input" type="password" value="${escapeAttributeText(state.apiKey)}" placeholder="sk-..." autocomplete="off" />
+        </label>
+        <button id="validate-key-button" ${state.keyStatus === "running" || !state.apiKey.trim() ? "disabled" : ""}>${keyLabel}</button>
+      </div>
+      <p class="privacy-note">${escapeHtmlText(state.readiness.readiness_message)}</p>
+    </section>
+  `;
+}
+
+function renderEvaluationPackCard(state: RouterWorkbenchStateData): string {
+  return `
+    <section class="pack-panel">
+      <div class="section-title-row">
+        <div>
+          <h2>Training Benchmark</h2>
+          <p>Bundled subset with labeled tool ids, abstentions, relevance grades, and failure modes.</p>
         </div>
-        <p class="privacy-note">Session key unlocks analysis only after validation with ${escapeHtml(state.readiness.model_label)}.</p>
+        <button id="download-pack-button" class="secondary-action" ${state.packStatus !== "complete" ? "disabled" : ""}>Download Training Pack</button>
+      </div>
+      <div class="metric-grid">
+        <div><strong>${state.tools.length}</strong><span>tools</span></div>
+        <div><strong>${state.queries.length}</strong><span>queries</span></div>
+        <div><strong>${state.queries.filter((query) => query.should_route).length}</strong><span>route labels</span></div>
+        <div><strong>${state.queries.filter((query) => !query.should_route).length}</strong><span>abstains</span></div>
       </div>
     </section>
   `;
 }
 
-function workspaceReadinessCopy(state: PieState) {
-  if (!state.readiness.storage_ready) {
-    return {
-      tone: "failed",
-      title: "Storage blocked",
-      detail: "Local storage is not ready for prompt versioning.",
-    };
-  }
-
-  if (state.apiKeyStatus === "validating") {
-    return {
-      tone: "validating",
-      title: "Checking key",
-      detail: "Validating session access before analysis.",
-    };
-  }
-
-  if (state.analysisStatus === "analyzing") {
-    return {
-      tone: "validating",
-      title: "Analysis running",
-      detail: state.analysisStage,
-    };
-  }
-
-  if (state.errorMessage) {
-    return {
-      tone: "failed",
-      title: "Attention needed",
-      detail: state.errorMessage,
-    };
-  }
-
-  if (state.readiness.analyze_enabled) {
-    return {
-      tone: "accepted",
-      title: "Ready",
-      detail: "Prompt can be analyzed with the current session key.",
-    };
-  }
-
-  return {
-    tone: "idle",
-    title: "Session setup",
-    detail: state.readiness.readiness_message,
-  };
-}
-
-function keyStatusCopy(state: PieState) {
-  switch (state.apiKeyStatus) {
-    case "validating":
-      return {
-        tone: "validating",
-        title: "Validating key",
-        detail: "Checking gpt-5.4-mini access.",
-      };
-    case "accepted":
-      return {
-        tone: "accepted",
-        title: "API key accepted",
-        detail: state.readiness.readiness_message,
-      };
-    case "failed":
-      return {
-        tone: "failed",
-        title: "Key not ready",
-        detail: state.readiness.readiness_message,
-      };
-    case "idle":
-      return {
-        tone: "idle",
-        title: state.apiKey ? "Key not validated" : "Key required",
-        detail: state.apiKey
-          ? "Validate this session key before analysis."
-          : "Enter a session key to unlock analysis.",
-      };
-  }
-}
-
-function renderAnalysisProgress(state: PieState) {
-  if (state.analysisStatus === "idle") return "";
-
-  const statusLabel =
-    state.analysisStatus === "analyzing"
-      ? "Analyzing prompt"
-      : state.analysisStatus === "complete"
-        ? "Analysis complete"
-        : "Analysis failed";
-
+function renderQuerySourcePanel(state: RouterWorkbenchStateData): string {
+  const selected = getSelectedQueryRecordData(state);
+  const options = getFilteredQueriesList(state)
+    .map((query) => {
+      const expected = query.required_tool_ids[0] ?? "abstain";
+      return `<option value="${escapeAttributeText(query.id)}" ${query.id === state.selectedQueryId ? "selected" : ""}>${escapeHtmlText(`${query.id}: ${query.query.slice(0, 92)} -> ${expected}`)}</option>`;
+    })
+    .join("");
   return `
-    <div class="analysis-progress analysis-progress--${state.analysisStatus}">
-      <div class="progress-header">
-        <strong>${escapeHtml(statusLabel)}</strong>
-        <span class="progress-text">${state.analysisProgress}%</span>
+    <section class="query-panel">
+      <div class="section-title-row">
+        <div>
+          <h2>Inquiry Input</h2>
+          <p>Start from a labeled benchmark query or type your own live inquiry.</p>
+        </div>
+        <div class="segmented-control" aria-label="Query source">
+          <button data-query-source="benchmark" class="${state.querySource === "benchmark" ? "is-selected" : ""}">Benchmark Query</button>
+          <button data-query-source="custom" class="${state.querySource === "custom" ? "is-selected" : ""}">Custom Query</button>
+        </div>
       </div>
-      <div class="progress-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${state.analysisProgress}">
-        <span class="progress-fill" style="width: ${state.analysisProgress}%"></span>
+      ${
+        state.querySource === "benchmark"
+          ? `
+            <label class="field-stack" for="benchmark-query-select">
+              <span>Benchmark query</span>
+              <select id="benchmark-query-select">${options}</select>
+            </label>
+            <p class="query-summary">${renderQuerySummaryText(selected)}</p>
+          `
+          : `
+            <label class="field-stack" for="custom-query-input">
+              <span>Custom inquiry</span>
+              <textarea id="custom-query-input" rows="4" placeholder="Describe the user request that needs a tool route.">${escapeHtmlText(state.customQuery)}</textarea>
+            </label>
+          `
+      }
+      <label class="field-stack" for="recent-context-input">
+        <span>Recent conversation context</span>
+        <textarea id="recent-context-input" rows="3" placeholder="Optional prior turns or constraints.">${escapeHtmlText(state.recentContext)}</textarea>
+      </label>
+    </section>
+  `;
+}
+
+function renderRouterModePanel(state: RouterWorkbenchStateData): string {
+  return `
+    <section class="mode-panel">
+      <div class="section-title-row">
+        <div>
+          <h2>CPU Router</h2>
+          <p>Pick the deterministic shortlist strategy before judge review.</p>
+        </div>
       </div>
-      <p>${escapeHtml(state.analysisStage)}</p>
+      <div class="mode-grid">
+        ${Object.entries(routerModeLabelsData)
+          .map(
+            ([mode, label]) => `
+              <button data-router-mode="${mode}" class="mode-button ${state.routerMode === mode ? "is-selected" : ""}">
+                <strong>${label}</strong>
+                <span>${mode === "lexical" ? "Fast keyword baseline" : mode === "schema_aware" ? "Adds schema signals" : "Fuses lexical and schema ranks"}</span>
+              </button>
+            `,
+          )
+          .join("")}
+      </div>
+    </section>
+  `;
+}
+
+function renderRouteActionPanel(state: RouterWorkbenchStateData): string {
+  return `
+    <section class="action-panel">
+      <button id="cpu-preview-button" ${!canRunPreviewNow(state) || state.previewStatus === "running" ? "disabled" : ""}>${state.previewStatus === "running" ? "Running Preview" : "Run CPU Preview"}</button>
+      <button id="judged-route-button" ${!canRunJudgedRoute(state) || state.judgedStatus === "running" ? "disabled" : ""}>${state.judgedStatus === "running" ? "Running Judge" : "Run Judged Route"}</button>
+      <button id="metrics-run-button" class="secondary-action" ${state.metricsStatus === "running" || state.packStatus !== "complete" ? "disabled" : ""}>${state.metricsStatus === "running" ? "Evaluating" : "Run Benchmark Eval"}</button>
+      <button id="export-evidence-button" class="secondary-action" ${!state.routeResponse ? "disabled" : ""}>Export Evidence</button>
+      <button id="export-logs-button" class="secondary-action">Export Logs</button>
+      ${state.exportMessage ? `<p class="export-message">${escapeHtmlText(state.exportMessage)}</p>` : ""}
+    </section>
+  `;
+}
+
+function renderRouteResultPanel(state: RouterWorkbenchStateData): string {
+  if (!state.routeResponse) {
+    return `
+      <section class="result-panel">
+        <h2>Route Result</h2>
+        <p class="empty-state">Run a preview or judged route to inspect ranked evidence.</p>
+      </section>
+    `;
+  }
+  const decision = state.routeResponse.judge_decision;
+  return `
+    <section class="result-panel">
+      <div class="section-title-row">
+        <div>
+          <h2>Route Result</h2>
+          <p>${escapeHtmlText(state.routeResponse.route_label)}</p>
+        </div>
+        ${
+          decision
+            ? `<div class="decision-box"><strong>${escapeHtmlText(decision.selected_tool_id ?? "abstain")}</strong><span>${formatMetricValue(decision.confidence)} confidence</span></div>`
+            : `<div class="decision-box"><strong>Top five</strong><span>CPU preview only</span></div>`
+        }
+      </div>
+      ${decision ? `<p class="judge-reason">${escapeHtmlText(decision.reason)}</p>` : ""}
+      ${renderCandidateEvidenceCards(state.routeResponse.candidates)}
+    </section>
+  `;
+}
+
+function renderCandidateEvidenceCards(
+  candidates: CandidateEvidenceCardData[],
+): string {
+  return `
+    <div class="candidate-list">
+      ${candidates
+        .map(
+          (candidate) => `
+            <article class="candidate-card">
+              <div class="candidate-rank">#${candidate.rank}</div>
+              <div>
+                <h3>${escapeHtmlText(candidate.tool_id)}</h3>
+                <p>${escapeHtmlText(candidate.why_matched)}</p>
+                <dl>
+                  <div><dt>Score</dt><dd>${formatMetricValue(candidate.score)}</dd></div>
+                  <div><dt>Fields</dt><dd>${escapeHtmlText(candidate.matched_fields.join(", ") || "none")}</dd></div>
+                  <div><dt>Terms</dt><dd>${escapeHtmlText(candidate.matched_terms.slice(0, 8).join(", ") || "none")}</dd></div>
+                </dl>
+              </div>
+            </article>
+          `,
+        )
+        .join("")}
     </div>
   `;
 }
 
-function renderFindings(state: PieState) {
-  if (state.reverifyStatus === "running") {
-    return `
-      <section class="findings">
-        <header>
-          <div>
-            <h2>Reverify Results</h2>
-            <p>Re-verifying updated prompt against prior findings and patch history.</p>
-          </div>
-          <span>${escapeHtml(state.readiness.model_label)}</span>
-        </header>
-        <div class="analysis-progress analysis-progress--analyzing">
-          <div class="progress-header">
-            <strong>Re-verifying updated prompt</strong>
-            <span class="progress-text">Working</span>
-          </div>
-          <div class="progress-track" role="progressbar" aria-valuemin="0" aria-valuemax="100">
-            <span class="progress-fill" style="width: 82%"></span>
-          </div>
-          <p>Old findings are hidden while PIE compares the updated prompt with previous issues.</p>
-        </div>
-      </section>
-    `;
-  }
-
-  if (state.reverifyResult && state.reverifySourceAnalysis) {
-    return renderReverifyResults(state);
-  }
-
-  if (!state.analysis) return "";
-  const visibleGroups = visibleFindingGroups(state.analysis);
-  const reverifyTarget = state.updatedVersionName || state.analysis.prompt_version_name;
-  const rows = visibleGroups
-    .flatMap((group) =>
-      group.findings.map((finding) => {
-        const action = recommendedActionForFinding(group.section, finding);
-        return `
-          <tr>
-            <td>
-              <p class="finding-section">${escapeHtml(sectionLabel(group.section))}</p>
-              <strong>${escapeHtml(finding.title)}</strong>
-              <small>${escapeHtml(finding.severity)} / ${escapeHtml(finding.fix_mode)}</small>
-              <span class="finding-impact">${escapeHtml(finding.impact)}</span>
-            </td>
-            <td>
-              <strong class="recommendation-home">${escapeHtml(action.betterHome)}</strong>
-              <small class="recommendation-explain">${escapeHtml(actionExplanationForHome(action.betterHome))}</small>
-              ${renderRecommendationBullets(action.bullets)}
-            </td>
-          </tr>
-        `;
-      }),
-    )
-    .join("");
-
+function renderBenchmarkHealthPanel(state: RouterWorkbenchStateData): string {
+  const report = state.metricsReport;
   return `
-    <section class="findings">
-      <header>
+    <section class="metrics-panel">
+      <div class="section-title-row">
         <div>
-          <h2>Findings</h2>
-          <p>Review evidence, then apply one recommended patch across the non-backlog findings.</p>
+          <h2>Benchmark Health</h2>
+          <p>Metrics are computed from the same bundled 50-query subset.</p>
         </div>
-        <span>${escapeHtml(state.analysis.model_label)}</span>
-      </header>
-      <div class="finding-actions">
-        <button id="download-findings">Download Findings</button>
-        <button id="apply-recommended" class="${state.patchStatus === "applying" ? "is-loading" : ""}">
-          ${state.patchStatus === "applying" ? `<span class="spinner" aria-hidden="true"></span>Applying Patch` : "Apply Recommended Patch"}
-        </button>
-        <button id="reverify-prompt" class="secondary-action reverify-action" ${
-          state.updatedPromptJson ? "" : "disabled"
-        }>
-          Re-verify Updated Prompt
-        </button>
       </div>
-      <p class="reverify-target">Re-verify target: ${escapeHtml(reverifyTarget)}</p>
       ${
-        state.exportMessage.startsWith("Downloaded findings")
-          ? `<p class="download-status">${escapeHtml(state.exportMessage)}</p>`
-          : ""
+        report
+          ? `
+            <div class="metric-grid">
+              <div><strong>${formatMetricValue(report.recall_at_k["5"] ?? 0)}</strong><span>Recall@5</span></div>
+              <div><strong>${formatMetricValue(report.mrr)}</strong><span>MRR</span></div>
+              <div><strong>${formatMetricValue(report.ndcg_at_10)}</strong><span>nDCG@10</span></div>
+              <div><strong>${formatMetricValue(report.abstention_accuracy)}</strong><span>Abstention</span></div>
+            </div>
+          `
+          : `<p class="empty-state">Run benchmark eval to compare the selected CPU router.</p>`
       }
-      <table class="findings-table">
-        <thead>
-          <tr>
-            <th>Findings</th>
-            <th>Recommended Actions</th>
-          </tr>
-        </thead>
-        <tbody>${rows}</tbody>
-      </table>
     </section>
   `;
 }
 
-function renderReverifyResults(state: PieState) {
-  const sourceAnalysis = state.reverifySourceAnalysis;
-  const result = state.reverifyResult;
-  if (!sourceAnalysis || !result) return "";
-
-  const statuses = new Map(result.finding_statuses.map((status) => [status.finding_id, status]));
-  const rows = visibleFindingGroups(sourceAnalysis)
-    .flatMap((group) =>
-      group.findings.map((finding) => {
-        const action = recommendedActionForFinding(group.section, finding);
-        const status = statuses.get(finding.finding_id) ?? {
-          finding_id: finding.finding_id,
-          status: "Unknown" as const,
-          status_label: "Unknown",
-          rationale: "No reverify status was returned for this finding.",
-        };
-        return `
-          <tr>
-            <td>
-              <p class="finding-section">${escapeHtml(sectionLabel(group.section))}</p>
-              <strong>${escapeHtml(finding.title)}</strong>
-              <small>${escapeHtml(finding.severity)} / ${escapeHtml(finding.fix_mode)}</small>
-              <span class="finding-impact">${escapeHtml(finding.impact)}</span>
-            </td>
-            <td>
-              <strong class="recommendation-home">${escapeHtml(action.betterHome)}</strong>
-              <small class="recommendation-explain">${escapeHtml(actionExplanationForHome(action.betterHome))}</small>
-              ${renderRecommendationBullets(action.bullets)}
-            </td>
-            <td>
-              <strong class="reverify-status ${statusClassName(status.status)}">${escapeHtml(status.status_label)}</strong>
-              <span class="reverify-rationale">${escapeHtml(status.rationale)}</span>
-            </td>
-          </tr>
-        `;
-      }),
-    )
-    .join("");
-
+function renderActivityLogPanel(state: RouterWorkbenchStateData): string {
   return `
-    <section class="findings">
-      <header>
-        <div>
-          <h2>Reverify Results</h2>
-          <p>Comparison against the prior findings for ${escapeHtml(result.prompt_version_name)}.</p>
-        </div>
-        <span>${escapeHtml(result.model_label)}</span>
-      </header>
-      <div class="finding-actions">
-        <button id="download-findings" disabled>Download Findings</button>
-        <button id="apply-recommended" disabled>Apply Recommended Patch</button>
-        <button id="reverify-prompt" class="secondary-action reverify-action">Re-verify Updated Prompt</button>
-      </div>
-      <table class="findings-table findings-table--reverify">
-        <thead>
-          <tr>
-            <th>Findings</th>
-            <th>Recommended Actions</th>
-            <th>Reverify Status</th>
-          </tr>
-        </thead>
-        <tbody>${rows}</tbody>
-      </table>
-    </section>
+    <aside class="activity-log">
+      <h2>Routing Trace</h2>
+      <ol>
+        ${state.activityLog
+          .slice(-10)
+          .map((entry) => `<li>${escapeHtmlText(entry)}</li>`)
+          .join("")}
+      </ol>
+    </aside>
   `;
 }
 
-function renderUpdatedPrompt(state: PieState) {
-  if (!state.updatedPromptJson && !state.patchMessage) return "";
-  return `
-    <section class="updated-prompt">
-      <div>
-        <p class="eyebrow">Patch result</p>
-        <h2>Updated Prompt</h2>
-        ${state.patchMessage ? `<p>${escapeHtml(state.patchMessage)}</p>` : ""}
-        ${state.updatedVersionName ? `<small>Version: ${escapeHtml(state.updatedVersionName)}</small>` : ""}
-        ${
-          state.exportMessage.startsWith("Downloaded updated prompt")
-            ? `<p class="download-status">${escapeHtml(state.exportMessage)}</p>`
-            : ""
-        }
-      </div>
-      <button id="download-updated" ${state.updatedPromptJson ? "" : "disabled"}>
-        Download Updated Prompt
-      </button>
-    </section>
-  `;
+function renderQuerySummaryText(query: RouteQueryInputData | undefined): string {
+  if (!query) return "No benchmark query selected.";
+  const expected = query.required_tool_ids.join(", ") || "abstain";
+  const failureModes = query.failure_modes.join(", ") || "none listed";
+  return `Expected: ${expected}. Should route: ${query.should_route ? "yes" : "no"}. Failure modes: ${failureModes}.`;
 }
 
-function visibleFindingGroups(analysis: AnalysisResult) {
-  return analysis.finding_groups.filter((group) => group.section !== "Verification");
+function formatMetricValue(value: number): string {
+  return Number.isFinite(value) ? value.toFixed(4) : "0.0000";
 }
 
-function recommendedPatchFindingIds(analysis: AnalysisResult | null) {
-  if (!analysis) return [];
-  return visibleFindingGroups(analysis)
-    .flatMap((group) => group.findings)
-    .filter((finding) => finding.fix_mode !== "Backlog")
-    .map((finding) => finding.finding_id);
-}
-
-function recommendedActionForFinding(
-  section: FindingGroup["section"],
-  finding: FindingGroup["findings"][number],
+function pushActivityLogEntry(
+  state: RouterWorkbenchStateData,
+  message: string,
 ) {
-  const text = [
-    finding.finding_id,
-    finding.title,
-    finding.verification_scenario,
-  ]
-    .join(" ")
-    .toLowerCase();
-
-  if (section === "SafetyPhi") {
-    return {
-      betterHome: "Invariant Policy",
-      bullets: [
-        "Verify identity before any PHI disclosure.",
-        "Keep no-medical-advice and emergency escalation gates explicit.",
-        "Do not continue normal scheduling when safety gates trigger.",
-      ],
-    };
-  }
-
-  if (text.includes("waitlist")) {
-    return {
-      betterHome: "Capability Variant",
-      bullets: [
-        "Use `create_waitlist_entry(...)` only if that tool exists.",
-        "Otherwise replace the promise with honest staff handoff language.",
-      ],
-    };
-  }
-
-  if (text.includes("interpreter") || text.includes("language")) {
-    return {
-      betterHome: "Capability Variant",
-      bullets: [
-        "Add `request_interpreter(patient_id, language, appointment_id)` as a placeholder capability.",
-        "If unavailable, route to staff without claiming support was arranged.",
-      ],
-    };
-  }
-
-  if (
-    text.includes("callback") ||
-    text.includes("followup") ||
-    text.includes("follow-up") ||
-    text.includes("note-taking") ||
-    text.includes("note taking") ||
-    text.includes("internal-note")
-  ) {
-    return {
-      betterHome: "Capability Variant",
-      bullets: [
-        "Add `create_staff_followup_task(patient_id, reason, priority)`.",
-        "If unavailable, use real transfer/handoff instead of a promise.",
-      ],
-    };
-  }
-
-  if (text.includes("reschedule") || text.includes("cancel")) {
-    return {
-      betterHome: "Invariant Workflow",
-      bullets: [
-        "Call `get_available_slots` before any state change.",
-        "Read back the replacement slot and get confirmation.",
-        "Book the new appointment before canceling the old one.",
-      ],
-    };
-  }
-
-  if (
-    text.includes("schedule") ||
-    text.includes("provider") ||
-    text.includes("availability") ||
-    text.includes("office hours") ||
-    text.includes("insurance") ||
-    text.includes("appointment duration")
-  ) {
-    return {
-      betterHome: "Variant Data",
-      bullets: [
-        "Move provider facts out of static prompt prose.",
-        "Read schedules through `get_provider_availability(...)`.",
-        "Read clinic facts through `get_clinic_config(config_key)`.",
-      ],
-    };
-  }
-
-  return {
-    betterHome:
-      section === "ToolGaps"
-        ? "Capability Variant"
-        : section === "WorkflowOrder"
-          ? "Invariant Workflow"
-          : section === "Structure"
-            ? "Variant Data"
-            : "Eval Invariant",
-    bullets: splitActionIntoBullets(finding.suggested_fix),
-  };
-}
-
-function sectionLabel(section: FindingGroup["section"]) {
-  switch (section) {
-    case "Structure":
-      return "Variant Data Placement";
-    case "ToolGaps":
-      return "Capability Variants";
-    case "WorkflowOrder":
-      return "Invariant Workflow Order";
-    case "SafetyPhi":
-      return "Invariant Safety / PHI";
-    case "Verification":
-      return "Eval Invariants";
-    default:
-      return section;
+  if (state.activityLog.at(-1) !== message) {
+    state.activityLog.push(message);
   }
 }
 
-function actionExplanationForHome(betterHome: string) {
-  switch (betterHome) {
-    case "Variant Data":
-      return "Clinic or provider facts that should live in config or a lookup, not buried in static prompt prose.";
-    case "Capability Variant":
-      return "A promise is safe only when the tool surface can actually complete that action.";
-    case "Invariant Workflow":
-      return "Stable sequencing rule: keep state changes after lookup, readback, and confirmation.";
-    case "Invariant Policy":
-      return "Safety and PHI rule that should apply across every clinic-specific workflow.";
-    case "Eval Invariant":
-      return "Evidence requirement: prove the fix with before/after checks and regressions.";
-    default:
-      return "Classify the finding by the safest source of truth before changing prompt text.";
-  }
+function queryElementById<T extends HTMLElement>(
+  root: HTMLElement,
+  id: string,
+): T | null {
+  return root.querySelector<T>(`#${id}`);
 }
 
-function renderRecommendationBullets(bullets: string[]) {
-  return `
-    <ul class="recommendation-list">
-      ${bullets.map((bullet) => `<li>${escapeHtml(bullet)}</li>`).join("")}
-    </ul>
-  `;
-}
-
-function splitActionIntoBullets(action: string) {
-  const parts = action
-    .split(/(?<=\.)\s+/)
-    .map((part) => part.trim())
-    .filter(Boolean);
-
-  return parts.length > 0 ? parts.slice(0, 3) : ["Review and apply the smallest safe prompt change."];
-}
-
-function statusClassName(status: string) {
-  switch (status) {
-    case "Fixed":
-      return "status-fixed";
-    case "StillFailing":
-      return "status-still-failing";
-    default:
-      return "status-unknown";
-  }
-}
-
-function findingsExportFilename(promptVersionName: string) {
-  return `pie-findings-${promptVersionName.replace(/[^a-zA-Z0-9._-]/g, "-")}.md`;
-}
-
-function downloadCompletionMessage(kind: string, filename: string, target: string | void) {
-  return `Downloaded ${kind} to ${target || `~/Downloads/${filename}`}.`;
-}
-
-function downloadTextInBrowser(filename: string, content: string) {
-  const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = filename;
-  anchor.click();
-  URL.revokeObjectURL(url);
-  return `~/Downloads/${filename}`;
-}
-
-function errorToMessage(error: unknown) {
-  if (typeof error === "object" && error && "message" in error) {
+function errorToMessageText(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  if (typeof error === "string") return error;
+  if (error && typeof error === "object" && "message" in error) {
     return String((error as { message: unknown }).message);
   }
-  return String(error);
+  return "Unknown router error.";
 }
 
-function escapeHtml(value: string) {
+function escapeHtmlText(value: string): string {
   return value
     .replaceAll("&", "&amp;")
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#39;");
+    .replaceAll('"', "&quot;");
 }
 
-function escapeAttribute(value: string) {
-  return escapeHtml(value);
+function escapeAttributeText(value: string): string {
+  return escapeHtmlText(value).replaceAll("'", "&#39;");
+}
+
+function downloadTextInBrowser(filename: string, content: string): string {
+  const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+  return filename;
 }
