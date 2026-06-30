@@ -1,0 +1,83 @@
+{
+  "name": "tool-routing-takehome-reference-subset",
+  "version": "2026-06-30",
+  "description": "A 50-query, provenance-preserving subset assembled from local benchmark reference repositories for evaluating pre-model MCP/tool routing.",
+  "assignment_fit": {
+    "router_input": "user query plus tool metadata only",
+    "primary_metric": "required-tool recall@k over the returned candidate subset",
+    "secondary_metrics": [
+      "abstention accuracy for no-route cases",
+      "graded nDCG@10 for mcpproxy-go relevance labels",
+      "candidate token reduction versus full catalog",
+      "latency over catalog size"
+    ],
+    "baseline": "BM25 or TF-IDF over name + description + JSON schema text",
+    "do_not_measure": "final LLM answer correctness; this subset isolates routing quality"
+  },
+  "counts": {
+    "tools": 947,
+    "queries": 50,
+    "route_required_queries": 46,
+    "abstention_queries": 4
+  },
+  "source_repo_counts": {
+    "VOTR": 22,
+    "contextweaver": 8,
+    "graph-tool-call": 8,
+    "mcpproxy-go": 6,
+    "LiveMCPBench": 3,
+    "mcp-bench": 3
+  },
+  "tool_source_repo_counts": {
+    "contextweaver": 83,
+    "graph-tool-call": 158,
+    "LiveMCPBench": 525,
+    "mcp-bench": 20,
+    "mcpproxy-go": 45,
+    "VOTR": 116
+  },
+  "failure_mode_counts": {
+    "ambiguous_tool_name": 12,
+    "near_duplicate_capability": 12,
+    "noisy_user_language": 4,
+    "typo_or_abbreviation": 4,
+    "unsupported_intent": 4,
+    "abstention_required": 4,
+    "multi_tool_single_turn": 2,
+    "ordered_subtasks": 2,
+    "namespace_breadth": 8,
+    "exact_route_gold": 8,
+    "openapi_tool_selection": 4,
+    "read": 5,
+    "write": 3,
+    "multi_server_mcp": 4,
+    "graded_relevance": 6,
+    "hard_negative": 5,
+    "real_mcp_task": 3,
+    "multi_step_task": 3,
+    "mcp_task_runner": 3,
+    "single_server_task": 1,
+    "multi_server_task": 2
+  },
+  "source_files": {
+    "votr_ambiguity": "git-ref-repo/VOTR/benchmarks/functional_correctness/ambiguity_collision.priority.json",
+    "votr_robustness": "git-ref-repo/VOTR/benchmarks/functional_correctness/robustness_safety.priority.json",
+    "votr_negative": "git-ref-repo/VOTR/benchmarks/negative_controls/priority_cases.json",
+    "votr_multi": "git-ref-repo/VOTR/benchmarks/functional_correctness/multi_tool.single_turn.json",
+    "votr_small_github": "git-ref-repo/VOTR/data/catalog_subsets/small_github.embedding.json",
+    "votr_small_3": "git-ref-repo/VOTR/data/catalog_subsets/small_3_servers.embedding.json",
+    "votr_small_telegram": "git-ref-repo/VOTR/data/catalog_subsets/small_telegram.embedding.json",
+    "contextweaver_gold": "git-ref-repo/contextweaver/benchmarks/routing_gold.json",
+    "contextweaver_catalog": "git-ref-repo/contextweaver/src/contextweaver/routing/catalog.py",
+    "graph_github_gold": "git-ref-repo/graph-tool-call/benchmarks/ground_truth/github.json",
+    "graph_multi_gold": "git-ref-repo/graph-tool-call/benchmarks/ground_truth/multi_mcp.json",
+    "graph_github_spec": "git-ref-repo/graph-tool-call/benchmarks/specs/github_subset.json",
+    "mcpproxy_corpus": "git-ref-repo/mcpproxy-go/specs/065-evaluation-foundation/datasets/corpus_v1.tools.json",
+    "mcpproxy_gold": "git-ref-repo/mcpproxy-go/specs/065-evaluation-foundation/datasets/retrieval_golden_v1.json",
+    "livemcp_annotations": "git-ref-repo/LiveMCPBench/annotated_data/all_annotations.json",
+    "livemcp_tools": "git-ref-repo/LiveMCPBench/tools/LiveMCPTool/tools.json",
+    "mcpbench_single": "git-ref-repo/mcp-bench/tasks/mcpbench_tasks_single_runner_format.json",
+    "mcpbench_multi2": "git-ref-repo/mcp-bench/tasks/mcpbench_tasks_multi_2server_runner_format.json",
+    "mcpbench_multi3": "git-ref-repo/mcp-bench/tasks/mcpbench_tasks_multi_3server_runner_format.json"
+  }
+}

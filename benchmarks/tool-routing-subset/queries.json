@@ -1,0 +1,1784 @@
+[
+  {
+    "id": "TRQ-001",
+    "query": "list spreadsheets available in the account (Google Sheets documents)",
+    "connected_tool_pool": "all_tools",
+    "required_tool_ids": [
+      "votr.Google Sheets::listSpreadsheets"
+    ],
+    "graded_relevance": [
+      {
+        "tool_id": "votr.Google Sheets::listSpreadsheets",
+        "relevance": 2
+      }
+    ],
+    "expected_servers": [
+      "votr"
+    ],
+    "source_expected_tools": [
+      "Google Sheets::listSpreadsheets"
+    ],
+    "source": {
+      "repo": "VOTR",
+      "path": "git-ref-repo/VOTR/benchmarks/functional_correctness/ambiguity_collision.priority.json",
+      "case_id": "amb-001"
+    },
+    "failure_modes": [
+      "ambiguous_tool_name",
+      "near_duplicate_capability"
+    ],
+    "difficulty": "hard",
+    "correctness_notes": "Router-only ambiguity/collision case from VOTR.",
+    "should_route": true
+  },
+  {
+    "id": "TRQ-002",
+    "query": "list tabs or sheets inside a spreadsheet (Google Sheets documents)",
+    "connected_tool_pool": "all_tools",
+    "required_tool_ids": [
+      "votr.Google Sheets::listSheets"
+    ],
+    "graded_relevance": [
+      {
+        "tool_id": "votr.Google Sheets::listSheets",
+        "relevance": 2
+      }
+    ],
+    "expected_servers": [
+      "votr"
+    ],
+    "source_expected_tools": [
+      "Google Sheets::listSheets"
+    ],
+    "source": {
+      "repo": "VOTR",
+      "path": "git-ref-repo/VOTR/benchmarks/functional_correctness/ambiguity_collision.priority.json",
+      "case_id": "amb-002"
+    },
+    "failure_modes": [
+      "ambiguous_tool_name",
+      "near_duplicate_capability"
+    ],
+    "difficulty": "hard",
+    "correctness_notes": "Router-only ambiguity/collision case from VOTR.",
+    "should_route": true
+  },
+  {
+    "id": "TRQ-003",
+    "query": "list the contents of a directory path (Filesystem operations)",
+    "connected_tool_pool": "all_tools",
+    "required_tool_ids": [
+      "votr.Filesystem::list_directory"
+    ],
+    "graded_relevance": [
+      {
+        "tool_id": "votr.Filesystem::list_directory",
+        "relevance": 2
+      }
+    ],
+    "expected_servers": [
+      "votr"
+    ],
+    "source_expected_tools": [
+      "Filesystem::list_directory"
+    ],
+    "source": {
+      "repo": "VOTR",
+      "path": "git-ref-repo/VOTR/benchmarks/functional_correctness/ambiguity_collision.priority.json",
+      "case_id": "amb-003"
+    },
+    "failure_modes": [
+      "ambiguous_tool_name",
+      "near_duplicate_capability"
+    ],
+    "difficulty": "hard",
+    "correctness_notes": "Router-only ambiguity/collision case from VOTR.",
+    "should_route": true
+  },
+  {
+    "id": "TRQ-004",
+    "query": "show which directories this server is allowed to access (Filesystem operations)",
+    "connected_tool_pool": "all_tools",
+    "required_tool_ids": [
+      "votr.Filesystem::list_allowed_directories"
+    ],
+    "graded_relevance": [
+      {
+        "tool_id": "votr.Filesystem::list_allowed_directories",
+        "relevance": 2
+      }
+    ],
+    "expected_servers": [
+      "votr"
+    ],
+    "source_expected_tools": [
+      "Filesystem::list_allowed_directories"
+    ],
+    "source": {
+      "repo": "VOTR",
+      "path": "git-ref-repo/VOTR/benchmarks/functional_correctness/ambiguity_collision.priority.json",
+      "case_id": "amb-004"
+    },
+    "failure_modes": [
+      "ambiguous_tool_name",
+      "near_duplicate_capability"
+    ],
+    "difficulty": "hard",
+    "correctness_notes": "Router-only ambiguity/collision case from VOTR.",
+    "should_route": true
+  },
+  {
+    "id": "TRQ-005",
+    "query": "list pull requests for a repository (GitHub repository operations)",
+    "connected_tool_pool": "all_tools",
+    "required_tool_ids": [
+      "votr.GitHub::list_pull_requests"
+    ],
+    "graded_relevance": [
+      {
+        "tool_id": "votr.GitHub::list_pull_requests",
+        "relevance": 2
+      }
+    ],
+    "expected_servers": [
+      "votr"
+    ],
+    "source_expected_tools": [
+      "GitHub::list_pull_requests"
+    ],
+    "source": {
+      "repo": "VOTR",
+      "path": "git-ref-repo/VOTR/benchmarks/functional_correctness/ambiguity_collision.priority.json",
+      "case_id": "amb-005"
+    },
+    "failure_modes": [
+      "ambiguous_tool_name",
+      "near_duplicate_capability"
+    ],
+    "difficulty": "hard",
+    "correctness_notes": "Router-only ambiguity/collision case from VOTR.",
+    "should_route": true
+  },
+  {
+    "id": "TRQ-006",
+    "query": "list issues in a specific repository (GitHub repository operations)",
+    "connected_tool_pool": "all_tools",
+    "required_tool_ids": [
+      "votr.GitHub::list_issues"
+    ],
+    "graded_relevance": [
+      {
+        "tool_id": "votr.GitHub::list_issues",
+        "relevance": 2
+      }
+    ],
+    "expected_servers": [
+      "votr"
+    ],
+    "source_expected_tools": [
+      "GitHub::list_issues"
+    ],
+    "source": {
+      "repo": "VOTR",
+      "path": "git-ref-repo/VOTR/benchmarks/functional_correctness/ambiguity_collision.priority.json",
+      "case_id": "amb-006"
+    },
+    "failure_modes": [
+      "ambiguous_tool_name",
+      "near_duplicate_capability"
+    ],
+    "difficulty": "hard",
+    "correctness_notes": "Router-only ambiguity/collision case from VOTR.",
+    "should_route": true
+  },
+  {
+    "id": "TRQ-007",
+    "query": "search issues across repositories using keywords (GitHub repository operations)",
+    "connected_tool_pool": "all_tools",
+    "required_tool_ids": [
+      "votr.GitHub::search_issues"
+    ],
+    "graded_relevance": [
+      {
+        "tool_id": "votr.GitHub::search_issues",
+        "relevance": 2
+      }
+    ],
+    "expected_servers": [
+      "votr"
+    ],
+    "source_expected_tools": [
+      "GitHub::search_issues"
+    ],
+    "source": {
+      "repo": "VOTR",
+      "path": "git-ref-repo/VOTR/benchmarks/functional_correctness/ambiguity_collision.priority.json",
+      "case_id": "amb-007"
+    },
+    "failure_modes": [
+      "ambiguous_tool_name",
+      "near_duplicate_capability"
+    ],
+    "difficulty": "hard",
+    "correctness_notes": "Router-only ambiguity/collision case from VOTR.",
+    "should_route": true
+  },
+  {
+    "id": "TRQ-008",
+    "query": "post a fresh message into a channel (Slack messaging operations)",
+    "connected_tool_pool": "all_tools",
+    "required_tool_ids": [
+      "votr.Slack::slack_post_message"
+    ],
+    "graded_relevance": [
+      {
+        "tool_id": "votr.Slack::slack_post_message",
+        "relevance": 2
+      }
+    ],
+    "expected_servers": [
+      "votr"
+    ],
+    "source_expected_tools": [
+      "Slack::slack_post_message"
+    ],
+    "source": {
+      "repo": "VOTR",
+      "path": "git-ref-repo/VOTR/benchmarks/functional_correctness/ambiguity_collision.priority.json",
+      "case_id": "amb-008"
+    },
+    "failure_modes": [
+      "ambiguous_tool_name",
+      "near_duplicate_capability"
+    ],
+    "difficulty": "hard",
+    "correctness_notes": "Router-only ambiguity/collision case from VOTR.",
+    "should_route": true
+  },
+  {
+    "id": "TRQ-009",
+    "query": "reply to an existing thread instead of posting a new top-level message (Slack messaging operations)",
+    "connected_tool_pool": "all_tools",
+    "required_tool_ids": [
+      "votr.Slack::slack_reply_to_thread"
+    ],
+    "graded_relevance": [
+      {
+        "tool_id": "votr.Slack::slack_reply_to_thread",
+        "relevance": 2
+      }
+    ],
+    "expected_servers": [
+      "votr"
+    ],
+    "source_expected_tools": [
+      "Slack::slack_reply_to_thread"
+    ],
+    "source": {
+      "repo": "VOTR",
+      "path": "git-ref-repo/VOTR/benchmarks/functional_correctness/ambiguity_collision.priority.json",
+      "case_id": "amb-009"
+    },
+    "failure_modes": [
+      "ambiguous_tool_name",
+      "near_duplicate_capability"
+    ],
+    "difficulty": "hard",
+    "correctness_notes": "Router-only ambiguity/collision case from VOTR.",
+    "should_route": true
+  },
+  {
+    "id": "TRQ-010",
+    "query": "send a new message to a chat (Telegram messaging operations)",
+    "connected_tool_pool": "all_tools",
+    "required_tool_ids": [
+      "votr.Telegram::send_message"
+    ],
+    "graded_relevance": [
+      {
+        "tool_id": "votr.Telegram::send_message",
+        "relevance": 2
+      }
+    ],
+    "expected_servers": [
+      "votr"
+    ],
+    "source_expected_tools": [
+      "Telegram::send_message"
+    ],
+    "source": {
+      "repo": "VOTR",
+      "path": "git-ref-repo/VOTR/benchmarks/functional_correctness/ambiguity_collision.priority.json",
+      "case_id": "amb-010"
+    },
+    "failure_modes": [
+      "ambiguous_tool_name",
+      "near_duplicate_capability"
+    ],
+    "difficulty": "hard",
+    "correctness_notes": "Router-only ambiguity/collision case from VOTR.",
+    "should_route": true
+  },
+  {
+    "id": "TRQ-011",
+    "query": "reply to a specific existing message in a chat (Telegram messaging operations)",
+    "connected_tool_pool": "all_tools",
+    "required_tool_ids": [
+      "votr.Telegram::reply_to_message"
+    ],
+    "graded_relevance": [
+      {
+        "tool_id": "votr.Telegram::reply_to_message",
+        "relevance": 2
+      }
+    ],
+    "expected_servers": [
+      "votr"
+    ],
+    "source_expected_tools": [
+      "Telegram::reply_to_message"
+    ],
+    "source": {
+      "repo": "VOTR",
+      "path": "git-ref-repo/VOTR/benchmarks/functional_correctness/ambiguity_collision.priority.json",
+      "case_id": "amb-011"
+    },
+    "failure_modes": [
+      "ambiguous_tool_name",
+      "near_duplicate_capability"
+    ],
+    "difficulty": "hard",
+    "correctness_notes": "Router-only ambiguity/collision case from VOTR.",
+    "should_route": true
+  },
+  {
+    "id": "TRQ-012",
+    "query": "delete one task from a task list (Google Tasks todo operations)",
+    "connected_tool_pool": "all_tools",
+    "required_tool_ids": [
+      "votr.Google Tasks::delete"
+    ],
+    "graded_relevance": [
+      {
+        "tool_id": "votr.Google Tasks::delete",
+        "relevance": 2
+      }
+    ],
+    "expected_servers": [
+      "votr"
+    ],
+    "source_expected_tools": [
+      "Google Tasks::delete"
+    ],
+    "source": {
+      "repo": "VOTR",
+      "path": "git-ref-repo/VOTR/benchmarks/functional_correctness/ambiguity_collision.priority.json",
+      "case_id": "amb-012"
+    },
+    "failure_modes": [
+      "ambiguous_tool_name",
+      "near_duplicate_capability"
+    ],
+    "difficulty": "hard",
+    "correctness_notes": "Router-only ambiguity/collision case from VOTR.",
+    "should_route": true
+  },
+  {
+    "id": "TRQ-013",
+    "query": "list open prs for a repo pls (github repo ops)",
+    "connected_tool_pool": "all_tools",
+    "required_tool_ids": [
+      "votr.GitHub::list_pull_requests"
+    ],
+    "graded_relevance": [
+      {
+        "tool_id": "votr.GitHub::list_pull_requests",
+        "relevance": 2
+      }
+    ],
+    "expected_servers": [
+      "votr"
+    ],
+    "source_expected_tools": [
+      "GitHub::list_pull_requests"
+    ],
+    "source": {
+      "repo": "VOTR",
+      "path": "git-ref-repo/VOTR/benchmarks/functional_correctness/robustness_safety.priority.json",
+      "case_id": "rob-001"
+    },
+    "failure_modes": [
+      "noisy_user_language",
+      "typo_or_abbreviation"
+    ],
+    "difficulty": "medium",
+    "correctness_notes": "Router robustness case with informal or misspelled phrasing.",
+    "should_route": true
+  },
+  {
+    "id": "TRQ-014",
+    "query": "srch issues about auth bug across repos (github issue search)",
+    "connected_tool_pool": "all_tools",
+    "required_tool_ids": [
+      "votr.GitHub::search_issues"
+    ],
+    "graded_relevance": [
+      {
+        "tool_id": "votr.GitHub::search_issues",
+        "relevance": 2
+      }
+    ],
+    "expected_servers": [
+      "votr"
+    ],
+    "source_expected_tools": [
+      "GitHub::search_issues"
+    ],
+    "source": {
+      "repo": "VOTR",
+      "path": "git-ref-repo/VOTR/benchmarks/functional_correctness/robustness_safety.priority.json",
+      "case_id": "rob-002"
+    },
+    "failure_modes": [
+      "noisy_user_language",
+      "typo_or_abbreviation"
+    ],
+    "difficulty": "medium",
+    "correctness_notes": "Router robustness case with informal or misspelled phrasing.",
+    "should_route": true
+  },
+  {
+    "id": "TRQ-015",
+    "query": "post a quick update in the proj channel (slak messaging)",
+    "connected_tool_pool": "all_tools",
+    "required_tool_ids": [
+      "votr.Slack::slack_post_message"
+    ],
+    "graded_relevance": [
+      {
+        "tool_id": "votr.Slack::slack_post_message",
+        "relevance": 2
+      }
+    ],
+    "expected_servers": [
+      "votr"
+    ],
+    "source_expected_tools": [
+      "Slack::slack_post_message"
+    ],
+    "source": {
+      "repo": "VOTR",
+      "path": "git-ref-repo/VOTR/benchmarks/functional_correctness/robustness_safety.priority.json",
+      "case_id": "rob-003"
+    },
+    "failure_modes": [
+      "noisy_user_language",
+      "typo_or_abbreviation"
+    ],
+    "difficulty": "medium",
+    "correctness_notes": "Router robustness case with informal or misspelled phrasing.",
+    "should_route": true
+  },
+  {
+    "id": "TRQ-016",
+    "query": "answer in the thread instead of making a new channel post (slack thread replies)",
+    "connected_tool_pool": "all_tools",
+    "required_tool_ids": [
+      "votr.Slack::slack_reply_to_thread"
+    ],
+    "graded_relevance": [
+      {
+        "tool_id": "votr.Slack::slack_reply_to_thread",
+        "relevance": 2
+      }
+    ],
+    "expected_servers": [
+      "votr"
+    ],
+    "source_expected_tools": [
+      "Slack::slack_reply_to_thread"
+    ],
+    "source": {
+      "repo": "VOTR",
+      "path": "git-ref-repo/VOTR/benchmarks/functional_correctness/robustness_safety.priority.json",
+      "case_id": "rob-004"
+    },
+    "failure_modes": [
+      "noisy_user_language",
+      "typo_or_abbreviation"
+    ],
+    "difficulty": "medium",
+    "correctness_notes": "Router robustness case with informal or misspelled phrasing.",
+    "should_route": true
+  },
+  {
+    "id": "TRQ-017",
+    "query": "book a flight from NYC to SFO next Tuesday (airline booking operations)",
+    "connected_tool_pool": "all_tools",
+    "required_tool_ids": [],
+    "graded_relevance": [],
+    "expected_servers": [],
+    "source_expected_tools": [],
+    "source": {
+      "repo": "VOTR",
+      "path": "git-ref-repo/VOTR/benchmarks/negative_controls/priority_cases.json",
+      "case_id": "neg-001"
+    },
+    "failure_modes": [
+      "unsupported_intent",
+      "abstention_required"
+    ],
+    "difficulty": "hard",
+    "correctness_notes": "Must return no route or empty handoff set.",
+    "should_route": false
+  },
+  {
+    "id": "TRQ-018",
+    "query": "shut down my laptop right now (hardware control)",
+    "connected_tool_pool": "all_tools",
+    "required_tool_ids": [],
+    "graded_relevance": [],
+    "expected_servers": [],
+    "source_expected_tools": [],
+    "source": {
+      "repo": "VOTR",
+      "path": "git-ref-repo/VOTR/benchmarks/negative_controls/priority_cases.json",
+      "case_id": "neg-004"
+    },
+    "failure_modes": [
+      "unsupported_intent",
+      "abstention_required"
+    ],
+    "difficulty": "hard",
+    "correctness_notes": "Must return no route or empty handoff set.",
+    "should_route": false
+  },
+  {
+    "id": "TRQ-019",
+    "query": "diagnose the cause of this chest pain (medical diagnosis)",
+    "connected_tool_pool": "all_tools",
+    "required_tool_ids": [],
+    "graded_relevance": [],
+    "expected_servers": [],
+    "source_expected_tools": [],
+    "source": {
+      "repo": "VOTR",
+      "path": "git-ref-repo/VOTR/benchmarks/negative_controls/priority_cases.json",
+      "case_id": "neg-006"
+    },
+    "failure_modes": [
+      "unsupported_intent",
+      "abstention_required"
+    ],
+    "difficulty": "hard",
+    "correctness_notes": "Must return no route or empty handoff set.",
+    "should_route": false
+  },
+  {
+    "id": "TRQ-020",
+    "query": "install Chrome and make it the default browser (operating system administration)",
+    "connected_tool_pool": "all_tools",
+    "required_tool_ids": [],
+    "graded_relevance": [],
+    "expected_servers": [],
+    "source_expected_tools": [],
+    "source": {
+      "repo": "VOTR",
+      "path": "git-ref-repo/VOTR/benchmarks/negative_controls/priority_cases.json",
+      "case_id": "neg-008"
+    },
+    "failure_modes": [
+      "unsupported_intent",
+      "abstention_required"
+    ],
+    "difficulty": "hard",
+    "correctness_notes": "Must return no route or empty handoff set.",
+    "should_route": false
+  },
+  {
+    "id": "TRQ-021",
+    "query": "Single user turn #1: complete these intents in order: (1) extracts structured data from a given URL using a prompt to describe the data and fields to extract; (2) list all projects on your Aiven account; (3) list all services in a specific Aiven project; (4) execute a SQL query in the AnalyticDB for MySQL Cluster; (5) get the actual execution plan with runtime statistics for a SQL query",
+    "connected_tool_pool": "all_tools",
+    "required_tool_ids": [
+      "votr.AgentQL::extract-web-data",
+      "votr.Aiven::list_projects",
+      "votr.Aiven::list_services",
+      "votr.Alibaba Cloud AnalyticDB for MySQL::execute_sql",
+      "votr.Alibaba Cloud AnalyticDB for MySQL::get_execution_plan"
+    ],
+    "graded_relevance": [
+      {
+        "tool_id": "votr.AgentQL::extract-web-data",
+        "relevance": 2
+      },
+      {
+        "tool_id": "votr.Aiven::list_projects",
+        "relevance": 2
+      },
+      {
+        "tool_id": "votr.Aiven::list_services",
+        "relevance": 2
+      },
+      {
+        "tool_id": "votr.Alibaba Cloud AnalyticDB for MySQL::execute_sql",
+        "relevance": 2
+      },
+      {
+        "tool_id": "votr.Alibaba Cloud AnalyticDB for MySQL::get_execution_plan",
+        "relevance": 2
+      }
+    ],
+    "expected_servers": [
+      "votr"
+    ],
+    "source_expected_tools": [
+      "AgentQL::extract-web-data",
+      "Aiven::list_projects",
+      "Aiven::list_services",
+      "Alibaba Cloud AnalyticDB for MySQL::execute_sql",
+      "Alibaba Cloud AnalyticDB for MySQL::get_execution_plan"
+    ],
+    "source": {
+      "repo": "VOTR",
+      "path": "git-ref-repo/VOTR/benchmarks/functional_correctness/multi_tool.single_turn.json",
+      "case_id": "multi_tool-single_turn-0001"
+    },
+    "failure_modes": [
+      "multi_tool_single_turn",
+      "ordered_subtasks"
+    ],
+    "difficulty": "hard",
+    "correctness_notes": "Multi-target router case: recall over all required tools matters more than top-1.",
+    "should_route": true
+  },
+  {
+    "id": "TRQ-022",
+    "query": "Single user turn #2: complete these intents in order: (1) execute SELECT queries to read data from the database; (2) execute SHOW/COUNT queries to read metadata from the database; (3) retrieves documentation, input schema, and details about a specific Actor; (4) adds an Actor by name to the available tools list without executing it, requiring user consent to ru; (5) validates an OpenAPI file using APIMatic’s API and returns a validation summary",
+    "connected_tool_pool": "all_tools",
+    "required_tool_ids": [
+      "votr.Apache IoTDB::select_query",
+      "votr.Apache IoTDB::metadata_query",
+      "votr.Apify::get-actor-details",
+      "votr.Apify::add-actor-as-tool",
+      "votr.APIMatic MCP::validate-openapi-using-apimatic"
+    ],
+    "graded_relevance": [
+      {
+        "tool_id": "votr.Apache IoTDB::select_query",
+        "relevance": 2
+      },
+      {
+        "tool_id": "votr.Apache IoTDB::metadata_query",
+        "relevance": 2
+      },
+      {
+        "tool_id": "votr.Apify::get-actor-details",
+        "relevance": 2
+      },
+      {
+        "tool_id": "votr.Apify::add-actor-as-tool",
+        "relevance": 2
+      },
+      {
+        "tool_id": "votr.APIMatic MCP::validate-openapi-using-apimatic",
+        "relevance": 2
+      }
+    ],
+    "expected_servers": [
+      "votr"
+    ],
+    "source_expected_tools": [
+      "Apache IoTDB::select_query",
+      "Apache IoTDB::metadata_query",
+      "Apify::get-actor-details",
+      "Apify::add-actor-as-tool",
+      "APIMatic MCP::validate-openapi-using-apimatic"
+    ],
+    "source": {
+      "repo": "VOTR",
+      "path": "git-ref-repo/VOTR/benchmarks/functional_correctness/multi_tool.single_turn.json",
+      "case_id": "multi_tool-single_turn-0002"
+    },
+    "failure_modes": [
+      "multi_tool_single_turn",
+      "ordered_subtasks"
+    ],
+    "difficulty": "hard",
+    "correctness_notes": "Multi-target router case: recall over all required tools matters more than top-1.",
+    "should_route": true
+  },
+  {
+    "id": "TRQ-023",
+    "query": "export the audit log",
+    "connected_tool_pool": "all_tools",
+    "required_tool_ids": [
+      "contextweaver.admin.audit.export"
+    ],
+    "graded_relevance": [
+      {
+        "tool_id": "contextweaver.admin.audit.export",
+        "relevance": 2
+      }
+    ],
+    "expected_servers": [
+      "contextweaver"
+    ],
+    "source_expected_tools": [
+      "admin.audit.export"
+    ],
+    "source": {
+      "repo": "contextweaver",
+      "path": "git-ref-repo/contextweaver/benchmarks/routing_gold.json",
+      "case_id": "namespace:admin"
+    },
+    "failure_modes": [
+      "namespace_breadth",
+      "exact_route_gold"
+    ],
+    "difficulty": "medium",
+    "correctness_notes": "One representative hand-crafted routing-gold query per contextweaver namespace.",
+    "should_route": true
+  },
+  {
+    "id": "TRQ-024",
+    "query": "create an analytics dashboard",
+    "connected_tool_pool": "all_tools",
+    "required_tool_ids": [
+      "contextweaver.analytics.dashboards.create"
+    ],
+    "graded_relevance": [
+      {
+        "tool_id": "contextweaver.analytics.dashboards.create",
+        "relevance": 2
+      }
+    ],
+    "expected_servers": [
+      "contextweaver"
+    ],
+    "source_expected_tools": [
+      "analytics.dashboards.create"
+    ],
+    "source": {
+      "repo": "contextweaver",
+      "path": "git-ref-repo/contextweaver/benchmarks/routing_gold.json",
+      "case_id": "namespace:analytics"
+    },
+    "failure_modes": [
+      "namespace_breadth",
+      "exact_route_gold"
+    ],
+    "difficulty": "medium",
+    "correctness_notes": "One representative hand-crafted routing-gold query per contextweaver namespace.",
+    "should_route": true
+  },
+  {
+    "id": "TRQ-025",
+    "query": "create a new invoice",
+    "connected_tool_pool": "all_tools",
+    "required_tool_ids": [
+      "contextweaver.billing.invoices.create"
+    ],
+    "graded_relevance": [
+      {
+        "tool_id": "contextweaver.billing.invoices.create",
+        "relevance": 2
+      }
+    ],
+    "expected_servers": [
+      "contextweaver"
+    ],
+    "source_expected_tools": [
+      "billing.invoices.create"
+    ],
+    "source": {
+      "repo": "contextweaver",
+      "path": "git-ref-repo/contextweaver/benchmarks/routing_gold.json",
+      "case_id": "namespace:billing"
+    },
+    "failure_modes": [
+      "namespace_breadth",
+      "exact_route_gold"
+    ],
+    "difficulty": "medium",
+    "correctness_notes": "One representative hand-crafted routing-gold query per contextweaver namespace.",
+    "should_route": true
+  },
+  {
+    "id": "TRQ-026",
+    "query": "draft an email message",
+    "connected_tool_pool": "all_tools",
+    "required_tool_ids": [
+      "contextweaver.comms.email.draft"
+    ],
+    "graded_relevance": [
+      {
+        "tool_id": "contextweaver.comms.email.draft",
+        "relevance": 2
+      }
+    ],
+    "expected_servers": [
+      "contextweaver"
+    ],
+    "source_expected_tools": [
+      "comms.email.draft"
+    ],
+    "source": {
+      "repo": "contextweaver",
+      "path": "git-ref-repo/contextweaver/benchmarks/routing_gold.json",
+      "case_id": "namespace:comms"
+    },
+    "failure_modes": [
+      "namespace_breadth",
+      "exact_route_gold"
+    ],
+    "difficulty": "medium",
+    "correctness_notes": "One representative hand-crafted routing-gold query per contextweaver namespace.",
+    "should_route": true
+  },
+  {
+    "id": "TRQ-027",
+    "query": "delete a CRM activity record",
+    "connected_tool_pool": "all_tools",
+    "required_tool_ids": [
+      "contextweaver.crm.activities.delete"
+    ],
+    "graded_relevance": [
+      {
+        "tool_id": "contextweaver.crm.activities.delete",
+        "relevance": 2
+      }
+    ],
+    "expected_servers": [
+      "contextweaver"
+    ],
+    "source_expected_tools": [
+      "crm.activities.delete"
+    ],
+    "source": {
+      "repo": "contextweaver",
+      "path": "git-ref-repo/contextweaver/benchmarks/routing_gold.json",
+      "case_id": "namespace:crm"
+    },
+    "failure_modes": [
+      "namespace_breadth",
+      "exact_route_gold"
+    ],
+    "difficulty": "medium",
+    "correctness_notes": "One representative hand-crafted routing-gold query per contextweaver namespace.",
+    "should_route": true
+  },
+  {
+    "id": "TRQ-028",
+    "query": "publish a documentation page",
+    "connected_tool_pool": "all_tools",
+    "required_tool_ids": [
+      "contextweaver.docs.pages.publish"
+    ],
+    "graded_relevance": [
+      {
+        "tool_id": "contextweaver.docs.pages.publish",
+        "relevance": 2
+      }
+    ],
+    "expected_servers": [
+      "contextweaver"
+    ],
+    "source_expected_tools": [
+      "docs.pages.publish"
+    ],
+    "source": {
+      "repo": "contextweaver",
+      "path": "git-ref-repo/contextweaver/benchmarks/routing_gold.json",
+      "case_id": "namespace:docs"
+    },
+    "failure_modes": [
+      "namespace_breadth",
+      "exact_route_gold"
+    ],
+    "difficulty": "medium",
+    "correctness_notes": "One representative hand-crafted routing-gold query per contextweaver namespace.",
+    "should_route": true
+  },
+  {
+    "id": "TRQ-029",
+    "query": "create a new infrastructure deployment",
+    "connected_tool_pool": "all_tools",
+    "required_tool_ids": [
+      "contextweaver.infra.deployments.create"
+    ],
+    "graded_relevance": [
+      {
+        "tool_id": "contextweaver.infra.deployments.create",
+        "relevance": 2
+      }
+    ],
+    "expected_servers": [
+      "contextweaver"
+    ],
+    "source_expected_tools": [
+      "infra.deployments.create"
+    ],
+    "source": {
+      "repo": "contextweaver",
+      "path": "git-ref-repo/contextweaver/benchmarks/routing_gold.json",
+      "case_id": "namespace:infra"
+    },
+    "failure_modes": [
+      "namespace_breadth",
+      "exact_route_gold"
+    ],
+    "difficulty": "medium",
+    "correctness_notes": "One representative hand-crafted routing-gold query per contextweaver namespace.",
+    "should_route": true
+  },
+  {
+    "id": "TRQ-030",
+    "query": "search documents in the index",
+    "connected_tool_pool": "all_tools",
+    "required_tool_ids": [
+      "contextweaver.search.documents.query",
+      "contextweaver.search.internal.search"
+    ],
+    "graded_relevance": [
+      {
+        "tool_id": "contextweaver.search.documents.query",
+        "relevance": 2
+      },
+      {
+        "tool_id": "contextweaver.search.internal.search",
+        "relevance": 2
+      }
+    ],
+    "expected_servers": [
+      "contextweaver"
+    ],
+    "source_expected_tools": [
+      "search.documents.query",
+      "search.internal.search"
+    ],
+    "source": {
+      "repo": "contextweaver",
+      "path": "git-ref-repo/contextweaver/benchmarks/routing_gold.json",
+      "case_id": "namespace:search"
+    },
+    "failure_modes": [
+      "namespace_breadth",
+      "exact_route_gold"
+    ],
+    "difficulty": "medium",
+    "correctness_notes": "One representative hand-crafted routing-gold query per contextweaver namespace.",
+    "should_route": true
+  },
+  {
+    "id": "TRQ-031",
+    "query": "Get information about a repository",
+    "connected_tool_pool": "all_tools",
+    "required_tool_ids": [
+      "graph_openapi.github.getRepo"
+    ],
+    "graded_relevance": [
+      {
+        "tool_id": "graph_openapi.github.getRepo",
+        "relevance": 2
+      }
+    ],
+    "expected_servers": [
+      "graph_openapi"
+    ],
+    "source_expected_tools": [
+      "getRepo"
+    ],
+    "source": {
+      "repo": "graph-tool-call",
+      "path": "git-ref-repo/graph-tool-call/benchmarks/ground_truth/github.json",
+      "case_id": "github:0"
+    },
+    "failure_modes": [
+      "openapi_tool_selection",
+      "read"
+    ],
+    "difficulty": "easy",
+    "correctness_notes": "Graph-tool-call GitHub OpenAPI ground-truth case.",
+    "should_route": true
+  },
+  {
+    "id": "TRQ-032",
+    "query": "Create a bug report issue",
+    "connected_tool_pool": "all_tools",
+    "required_tool_ids": [
+      "graph_openapi.github.createIssue"
+    ],
+    "graded_relevance": [
+      {
+        "tool_id": "graph_openapi.github.createIssue",
+        "relevance": 2
+      }
+    ],
+    "expected_servers": [
+      "graph_openapi"
+    ],
+    "source_expected_tools": [
+      "createIssue"
+    ],
+    "source": {
+      "repo": "graph-tool-call",
+      "path": "git-ref-repo/graph-tool-call/benchmarks/ground_truth/github.json",
+      "case_id": "github:6"
+    },
+    "failure_modes": [
+      "openapi_tool_selection",
+      "write"
+    ],
+    "difficulty": "easy",
+    "correctness_notes": "Graph-tool-call GitHub OpenAPI ground-truth case.",
+    "should_route": true
+  },
+  {
+    "id": "TRQ-033",
+    "query": "Close issue #15 as completed",
+    "connected_tool_pool": "all_tools",
+    "required_tool_ids": [
+      "graph_openapi.github.updateIssue"
+    ],
+    "graded_relevance": [
+      {
+        "tool_id": "graph_openapi.github.updateIssue",
+        "relevance": 2
+      }
+    ],
+    "expected_servers": [
+      "graph_openapi"
+    ],
+    "source_expected_tools": [
+      "updateIssue"
+    ],
+    "source": {
+      "repo": "graph-tool-call",
+      "path": "git-ref-repo/graph-tool-call/benchmarks/ground_truth/github.json",
+      "case_id": "github:8"
+    },
+    "failure_modes": [
+      "openapi_tool_selection",
+      "write"
+    ],
+    "difficulty": "medium",
+    "correctness_notes": "Graph-tool-call GitHub OpenAPI ground-truth case.",
+    "should_route": true
+  },
+  {
+    "id": "TRQ-034",
+    "query": "List all pull requests",
+    "connected_tool_pool": "all_tools",
+    "required_tool_ids": [
+      "graph_openapi.github.listPullRequests"
+    ],
+    "graded_relevance": [
+      {
+        "tool_id": "graph_openapi.github.listPullRequests",
+        "relevance": 2
+      }
+    ],
+    "expected_servers": [
+      "graph_openapi"
+    ],
+    "source_expected_tools": [
+      "listPullRequests"
+    ],
+    "source": {
+      "repo": "graph-tool-call",
+      "path": "git-ref-repo/graph-tool-call/benchmarks/ground_truth/github.json",
+      "case_id": "github:11"
+    },
+    "failure_modes": [
+      "openapi_tool_selection",
+      "read"
+    ],
+    "difficulty": "easy",
+    "correctness_notes": "Graph-tool-call GitHub OpenAPI ground-truth case.",
+    "should_route": true
+  },
+  {
+    "id": "TRQ-035",
+    "query": "Take a screenshot of the current page",
+    "connected_tool_pool": "all_tools",
+    "required_tool_ids": [
+      "graph_mcp.playwright.browser_take_screenshot"
+    ],
+    "graded_relevance": [
+      {
+        "tool_id": "graph_mcp.playwright.browser_take_screenshot",
+        "relevance": 2
+      }
+    ],
+    "expected_servers": [
+      "graph_mcp"
+    ],
+    "source_expected_tools": [
+      "browser_take_screenshot"
+    ],
+    "source": {
+      "repo": "graph-tool-call",
+      "path": "git-ref-repo/graph-tool-call/benchmarks/ground_truth/multi_mcp.json",
+      "case_id": "multi_mcp:0"
+    },
+    "failure_modes": [
+      "multi_server_mcp",
+      "read"
+    ],
+    "difficulty": "easy",
+    "correctness_notes": "Graph-tool-call mixed MCP ground-truth case.",
+    "should_route": true
+  },
+  {
+    "id": "TRQ-036",
+    "query": "Read the config file",
+    "connected_tool_pool": "all_tools",
+    "required_tool_ids": [
+      "graph_mcp.filesystem.read_file"
+    ],
+    "graded_relevance": [
+      {
+        "tool_id": "graph_mcp.filesystem.read_file",
+        "relevance": 2
+      }
+    ],
+    "expected_servers": [
+      "graph_mcp"
+    ],
+    "source_expected_tools": [
+      "read_file"
+    ],
+    "source": {
+      "repo": "graph-tool-call",
+      "path": "git-ref-repo/graph-tool-call/benchmarks/ground_truth/multi_mcp.json",
+      "case_id": "multi_mcp:1"
+    },
+    "failure_modes": [
+      "multi_server_mcp",
+      "read"
+    ],
+    "difficulty": "easy",
+    "correctness_notes": "Graph-tool-call mixed MCP ground-truth case.",
+    "should_route": true
+  },
+  {
+    "id": "TRQ-037",
+    "query": "Create a GitHub issue",
+    "connected_tool_pool": "all_tools",
+    "required_tool_ids": [
+      "graph_mcp.github.create_issue"
+    ],
+    "graded_relevance": [
+      {
+        "tool_id": "graph_mcp.github.create_issue",
+        "relevance": 2
+      }
+    ],
+    "expected_servers": [
+      "graph_mcp"
+    ],
+    "source_expected_tools": [
+      "create_issue"
+    ],
+    "source": {
+      "repo": "graph-tool-call",
+      "path": "git-ref-repo/graph-tool-call/benchmarks/ground_truth/multi_mcp.json",
+      "case_id": "multi_mcp:2"
+    },
+    "failure_modes": [
+      "multi_server_mcp",
+      "write"
+    ],
+    "difficulty": "easy",
+    "correctness_notes": "Graph-tool-call mixed MCP ground-truth case.",
+    "should_route": true
+  },
+  {
+    "id": "TRQ-038",
+    "query": "Find all test files in the repository",
+    "connected_tool_pool": "all_tools",
+    "required_tool_ids": [
+      "graph_mcp.filesystem.search_files"
+    ],
+    "graded_relevance": [
+      {
+        "tool_id": "graph_mcp.filesystem.search_files",
+        "relevance": 2
+      }
+    ],
+    "expected_servers": [
+      "graph_mcp"
+    ],
+    "source_expected_tools": [
+      "search_files"
+    ],
+    "source": {
+      "repo": "graph-tool-call",
+      "path": "git-ref-repo/graph-tool-call/benchmarks/ground_truth/multi_mcp.json",
+      "case_id": "multi_mcp:6"
+    },
+    "failure_modes": [
+      "multi_server_mcp",
+      "read"
+    ],
+    "difficulty": "easy",
+    "correctness_notes": "Graph-tool-call mixed MCP ground-truth case.",
+    "should_route": true
+  },
+  {
+    "id": "TRQ-039",
+    "query": "Locate files anywhere beneath a folder whose names match a wildcard pattern",
+    "connected_tool_pool": "all_tools",
+    "required_tool_ids": [
+      "mcpproxy.filesystem:search_files"
+    ],
+    "graded_relevance": [
+      {
+        "tool_id": "mcpproxy.filesystem:search_files",
+        "relevance": 2
+      }
+    ],
+    "expected_servers": [
+      "mcpproxy"
+    ],
+    "source_expected_tools": [
+      "filesystem:search_files",
+      "memory:search_nodes"
+    ],
+    "source": {
+      "repo": "mcpproxy-go",
+      "path": "git-ref-repo/mcpproxy-go/specs/065-evaluation-foundation/datasets/retrieval_golden_v1.json",
+      "case_id": "q-fs-search"
+    },
+    "failure_modes": [
+      "graded_relevance",
+      "hard_negative"
+    ],
+    "difficulty": "medium",
+    "correctness_notes": "hard-negative: near-dup of memory:search_nodes (both 'search', but this is a filename lookup on disk, not a graph query)",
+    "should_route": true
+  },
+  {
+    "id": "TRQ-040",
+    "query": "Tell me which files are currently modified, staged, or untracked",
+    "connected_tool_pool": "all_tools",
+    "required_tool_ids": [
+      "mcpproxy.git:git_status"
+    ],
+    "graded_relevance": [
+      {
+        "tool_id": "mcpproxy.git:git_status",
+        "relevance": 2
+      }
+    ],
+    "expected_servers": [
+      "mcpproxy"
+    ],
+    "source_expected_tools": [
+      "git:git_status"
+    ],
+    "source": {
+      "repo": "mcpproxy-go",
+      "path": "git-ref-repo/mcpproxy-go/specs/065-evaluation-foundation/datasets/retrieval_golden_v1.json",
+      "case_id": "q-git-status"
+    },
+    "failure_modes": [
+      "graded_relevance"
+    ],
+    "difficulty": "medium",
+    "correctness_notes": "Frozen-corpus tool retrieval golden query.",
+    "should_route": true
+  },
+  {
+    "id": "TRQ-041",
+    "query": "Find stored notes in my knowledge base that mention a particular topic",
+    "connected_tool_pool": "all_tools",
+    "required_tool_ids": [
+      "mcpproxy.memory:search_nodes"
+    ],
+    "graded_relevance": [
+      {
+        "tool_id": "mcpproxy.memory:search_nodes",
+        "relevance": 2
+      }
+    ],
+    "expected_servers": [
+      "mcpproxy"
+    ],
+    "source_expected_tools": [
+      "memory:search_nodes",
+      "filesystem:search_files"
+    ],
+    "source": {
+      "repo": "mcpproxy-go",
+      "path": "git-ref-repo/mcpproxy-go/specs/065-evaluation-foundation/datasets/retrieval_golden_v1.json",
+      "case_id": "q-mem-search"
+    },
+    "failure_modes": [
+      "graded_relevance",
+      "hard_negative"
+    ],
+    "difficulty": "medium",
+    "correctness_notes": "hard-negative: near-dup of filesystem:search_files (both 'search', but this queries the graph, not the filesystem)",
+    "should_route": true
+  },
+  {
+    "id": "TRQ-042",
+    "query": "Run a query to pull matching rows out of my local relational database",
+    "connected_tool_pool": "all_tools",
+    "required_tool_ids": [
+      "mcpproxy.sqlite:read_query"
+    ],
+    "graded_relevance": [
+      {
+        "tool_id": "mcpproxy.sqlite:read_query",
+        "relevance": 2
+      }
+    ],
+    "expected_servers": [
+      "mcpproxy"
+    ],
+    "source_expected_tools": [
+      "sqlite:read_query",
+      "filesystem:read_text_file"
+    ],
+    "source": {
+      "repo": "mcpproxy-go",
+      "path": "git-ref-repo/mcpproxy-go/specs/065-evaluation-foundation/datasets/retrieval_golden_v1.json",
+      "case_id": "q-sql-select"
+    },
+    "failure_modes": [
+      "graded_relevance",
+      "hard_negative"
+    ],
+    "difficulty": "medium",
+    "correctness_notes": "hard-negative: near-dup of filesystem:read_text_file (both 'read', but this is a SQL SELECT, not reading a file)",
+    "should_route": true
+  },
+  {
+    "id": "TRQ-043",
+    "query": "Download a web page from a URL and give me its content as markdown",
+    "connected_tool_pool": "all_tools",
+    "required_tool_ids": [
+      "mcpproxy.fetch:fetch"
+    ],
+    "graded_relevance": [
+      {
+        "tool_id": "mcpproxy.fetch:fetch",
+        "relevance": 2
+      }
+    ],
+    "expected_servers": [
+      "mcpproxy"
+    ],
+    "source_expected_tools": [
+      "fetch:fetch",
+      "filesystem:read_text_file"
+    ],
+    "source": {
+      "repo": "mcpproxy-go",
+      "path": "git-ref-repo/mcpproxy-go/specs/065-evaluation-foundation/datasets/retrieval_golden_v1.json",
+      "case_id": "q-fetch"
+    },
+    "failure_modes": [
+      "graded_relevance",
+      "hard_negative"
+    ],
+    "difficulty": "medium",
+    "correctness_notes": "hard-negative: near-dup of filesystem:read_text_file (both return text, but this retrieves a remote URL, not a local file)",
+    "should_route": true
+  },
+  {
+    "id": "TRQ-044",
+    "query": "What is the current wall-clock time in a given city's timezone?",
+    "connected_tool_pool": "all_tools",
+    "required_tool_ids": [
+      "mcpproxy.time:get_current_time"
+    ],
+    "graded_relevance": [
+      {
+        "tool_id": "mcpproxy.time:get_current_time",
+        "relevance": 2
+      }
+    ],
+    "expected_servers": [
+      "mcpproxy"
+    ],
+    "source_expected_tools": [
+      "time:get_current_time",
+      "time:convert_time"
+    ],
+    "source": {
+      "repo": "mcpproxy-go",
+      "path": "git-ref-repo/mcpproxy-go/specs/065-evaluation-foundation/datasets/retrieval_golden_v1.json",
+      "case_id": "q-time-now"
+    },
+    "failure_modes": [
+      "graded_relevance",
+      "hard_negative"
+    ],
+    "difficulty": "medium",
+    "correctness_notes": "hard-negative: near-dup of time:convert_time (same server, but this reports 'now', it does not translate a supplied timestamp)",
+    "should_route": true
+  },
+  {
+    "id": "TRQ-045",
+    "query": "Generate a well-formatted PDF report titled wechat_reading_report.pdf in /root/pdf, summarizing current WeChat Reading trends and including a word cloud.",
+    "connected_tool_pool": "all_tools",
+    "required_tool_ids": [
+      "livemcp.trends-hub.get-weread-rank",
+      "livemcp.mcp-server-chart.generate_word_cloud_chart",
+      "livemcp.word-document-server.create_document",
+      "livemcp.word-document-server.add_paragraph",
+      "livemcp.word-document-server.add_picture",
+      "livemcp.word-document-server.convert_to_pdf"
+    ],
+    "graded_relevance": [
+      {
+        "tool_id": "livemcp.trends-hub.get-weread-rank",
+        "relevance": 2
+      },
+      {
+        "tool_id": "livemcp.mcp-server-chart.generate_word_cloud_chart",
+        "relevance": 2
+      },
+      {
+        "tool_id": "livemcp.word-document-server.create_document",
+        "relevance": 2
+      },
+      {
+        "tool_id": "livemcp.word-document-server.add_paragraph",
+        "relevance": 2
+      },
+      {
+        "tool_id": "livemcp.word-document-server.add_picture",
+        "relevance": 2
+      },
+      {
+        "tool_id": "livemcp.word-document-server.convert_to_pdf",
+        "relevance": 2
+      }
+    ],
+    "expected_servers": [
+      "livemcp"
+    ],
+    "source_expected_tools": [
+      "get-weread-rank",
+      "generate_word_cloud_chart",
+      "create_document",
+      "add_paragraph",
+      "add_picture",
+      "convert_to_pdf"
+    ],
+    "source": {
+      "repo": "LiveMCPBench",
+      "path": "git-ref-repo/LiveMCPBench/annotated_data/all_annotations.json",
+      "case_id": "0e3287cb-c0ff-4d2a-8c3d-d8833014a7b0"
+    },
+    "failure_modes": [
+      "real_mcp_task",
+      "multi_step_task"
+    ],
+    "difficulty": "hard",
+    "correctness_notes": "Annotated LiveMCPBench task in category Office.",
+    "should_route": true
+  },
+  {
+    "id": "TRQ-046",
+    "query": "Run a full reconnaissance on www.baidu.com. Give me a markdown report on /root/markdown/baidu_report.md with whois information and sitemap.",
+    "connected_tool_pool": "all_tools",
+    "required_tool_ids": [
+      "livemcp.whois.whois_domain",
+      "livemcp.sitemap.get_sitemap_tree",
+      "livemcp.desktop-commander.write_file"
+    ],
+    "graded_relevance": [
+      {
+        "tool_id": "livemcp.whois.whois_domain",
+        "relevance": 2
+      },
+      {
+        "tool_id": "livemcp.sitemap.get_sitemap_tree",
+        "relevance": 2
+      },
+      {
+        "tool_id": "livemcp.desktop-commander.write_file",
+        "relevance": 2
+      }
+    ],
+    "expected_servers": [
+      "livemcp"
+    ],
+    "source_expected_tools": [
+      "whois_domain",
+      "get_sitemap_tree",
+      "write_file"
+    ],
+    "source": {
+      "repo": "LiveMCPBench",
+      "path": "git-ref-repo/LiveMCPBench/annotated_data/all_annotations.json",
+      "case_id": "2b96c022-a2db-47a5-981a-03cc6ad8f95e"
+    },
+    "failure_modes": [
+      "real_mcp_task",
+      "multi_step_task"
+    ],
+    "difficulty": "medium",
+    "correctness_notes": "Annotated LiveMCPBench task in category Office.",
+    "should_route": true
+  },
+  {
+    "id": "TRQ-047",
+    "query": "Analyze Apple's stock for the past year and summarize it in a PPT in /root/ppt/apple.pptx.",
+    "connected_tool_pool": "all_tools",
+    "required_tool_ids": [
+      "livemcp.yahoo-finance.get_historical_stock_prices",
+      "livemcp.yahoo-finance.get_news",
+      "livemcp.yahoo-finance.get_recommendations",
+      "livemcp.ppt.create_presentation",
+      "livemcp.ppt.save_presentation"
+    ],
+    "graded_relevance": [
+      {
+        "tool_id": "livemcp.yahoo-finance.get_historical_stock_prices",
+        "relevance": 2
+      },
+      {
+        "tool_id": "livemcp.yahoo-finance.get_news",
+        "relevance": 2
+      },
+      {
+        "tool_id": "livemcp.yahoo-finance.get_recommendations",
+        "relevance": 2
+      },
+      {
+        "tool_id": "livemcp.ppt.create_presentation",
+        "relevance": 2
+      },
+      {
+        "tool_id": "livemcp.ppt.save_presentation",
+        "relevance": 2
+      }
+    ],
+    "expected_servers": [
+      "livemcp"
+    ],
+    "source_expected_tools": [
+      "get_historical_stock_prices",
+      "get_news",
+      "get_recommendations",
+      "create_presentation",
+      "save_presentation"
+    ],
+    "source": {
+      "repo": "LiveMCPBench",
+      "path": "git-ref-repo/LiveMCPBench/annotated_data/all_annotations.json",
+      "case_id": "88ccea26-01f6-4db6-ba95-6b2a73c0488b"
+    },
+    "failure_modes": [
+      "real_mcp_task",
+      "multi_step_task"
+    ],
+    "difficulty": "hard",
+    "correctness_notes": "Annotated LiveMCPBench task in category Finance.",
+    "should_route": true
+  },
+  {
+    "id": "TRQ-048",
+    "query": "Perform a comparative audit of “search” endpoints and their pagination strategies across three OpenAPI specifications: openai, github, and cloudflare.  \n1. For each spec (openai, github, cloudflare), call getApiOverview to retrieve the full list of paths and operations.  \n2. From each overview, identify every operation whose operationId or path contains the substring “search”.  \n3. For each identified search operation, call getApiOperation to fetch its details. Extract its parameters and response schema fields to determine if it supports pagination. Identify pagination style (page-based via page/page_size, cursor-based via cursor/next_cursor, or none), parameter names, types, required flags, and default values. Also note any response fields related to pagination (e.g., next_page, next_cursor).  \n4. If in any spec none of the search operations support pagination, then:  \n   a. Re-use getApiOverview on that spec and identify operations with “list” in their operationId or path.  \n   b. For each list operation, call getApiOperation and extract the same pagination data as above.  \n5. Consolidate findings into a comparative table (JSON array) with one entry per operation, containing: \n   • spec (openai/github/cloudflare)  \n   • operationId  \n   • path  \n   • paginationMechanism (\"page-based\", \"cursor-based\", or \"none\")  \n   • parameters: [{ name, in, type, required, default }]  \n   • responsePaginationFields: [field names]  \n6. Highlight any spec where search endpoints lack built-in pagination and must fall back to list endpoints, and compare the pagination consistency across all three specs.",
+    "connected_tool_pool": "all_tools",
+    "required_tool_ids": [
+      "mcpbench.openapi_explorer.getApiOverview",
+      "mcpbench.openapi_explorer.getApiOperation"
+    ],
+    "graded_relevance": [
+      {
+        "tool_id": "mcpbench.openapi_explorer.getApiOverview",
+        "relevance": 2
+      },
+      {
+        "tool_id": "mcpbench.openapi_explorer.getApiOperation",
+        "relevance": 2
+      }
+    ],
+    "expected_servers": [
+      "mcpbench"
+    ],
+    "source_expected_tools": [
+      "OpenAPI Explorer:getApiOverview",
+      "OpenAPI Explorer:getApiOperation"
+    ],
+    "source": {
+      "repo": "mcp-bench",
+      "path": "git-ref-repo/mcp-bench/tasks/mcpbench_tasks_single_runner_format.json",
+      "case_id": "openapi_explorer_000"
+    },
+    "failure_modes": [
+      "mcp_task_runner",
+      "single_server_task"
+    ],
+    "difficulty": "hard",
+    "correctness_notes": "MCP-Bench task from server group OpenAPI Explorer.",
+    "should_route": true
+  },
+  {
+    "id": "TRQ-049",
+    "query": "Investigate the current research landscape and clinical investigations of the BRAF V600E mutation in melanoma treatment resistance. 1) Use BioMCP:think (thoughtNumber=1, totalThoughts=5) to outline the plan. 2) Retrieve gene annotation for BRAF with BioMCP:gene_getter (gene_id_or_symbol=\"BRAF\"). 3) Search MyVariant.info for the BRAF p.V600E variant using BioMCP:variant_searcher (gene=\"BRAF\", hgvsp=\"p.V600E\"). 4) If variant_searcher returns at least one record, fetch the top variant details with BioMCP:variant_getter (variant_id=<top_result.id>, include_external=true). 5) Search for recent research articles about BRAF V600E and melanoma treatment resistance with BioMCP:article_searcher (genes=[\"BRAF\"], variants=[\"V600E\"], diseases=[\"melanoma\"], keywords=[\"treatment resistance\"], include_preprints=true, page_size=5). 6) For the top two article identifiers returned, fetch full text and abstract with BioMCP:article_getter (pmid=<first_id>) and (pmid=<second_id>). 7) In parallel, use Paper Search:search_arxiv (query=\"melanoma BRAF V600E treatment resistance\", max_results=5). From its top result, download and extract the PDF text with Paper Search:download_arxiv (paper_id=<top_arxiv_id>, save_path=\"./downloads\") then Paper Search:read_arxiv_paper (paper_id=<top_arxiv_id>, save_path=\"./downloads\"). 8) Also use Paper Search:search_pubmed (query=\"melanoma BRAF V600E treatment resistance\", max_results=5). From the top two PMIDs, fetch abstracts via BioMCP:article_getter. 9) Identify ongoing clinical trials testing BRAF inhibitors in melanoma with BioMCP:trial_searcher (conditions=[\"Melanoma\"], interventions=[\"vemurafenib\"], phase=\"PHASE2\"). If no Phase 2 trials are returned, repeat trial_searcher with phase=\"PHASE3\". 10) For each NCT ID returned, get full trial details with BioMCP:trial_getter (nct_id=<nct_id>) and site locations with BioMCP:trial_locations_getter (nct_id=<nct_id>). 11) Search NCI’s trial organization database for cancer centers in Boston, MA using BioMCP:nci_organization_searcher (city=\"Boston\", state=\"MA\"). 12) Cross-match the list of trial site institutions against the Boston-area NCI organizations to highlight which local centers are conducting BRAF V600E melanoma trials. 13) Summarize and output a JSON report containing: gene_info, variant_info, literature_findings (titles, abstracts), arxiv_summary (extracted text snippets), pubmed_summaries, trial_list (NCT IDs, titles, phases), trial_locations, and boston_nci_orgs_conducting_trials.",
+    "connected_tool_pool": "all_tools",
+    "required_tool_ids": [
+      "mcpbench.biomcp.think",
+      "mcpbench.biomcp.gene_getter",
+      "mcpbench.biomcp.variant_searcher",
+      "mcpbench.biomcp.variant_getter",
+      "mcpbench.biomcp.article_searcher",
+      "mcpbench.biomcp.article_getter",
+      "mcpbench.paper_search.search_arxiv",
+      "mcpbench.paper_search.download_arxiv"
+    ],
+    "graded_relevance": [
+      {
+        "tool_id": "mcpbench.biomcp.think",
+        "relevance": 2
+      },
+      {
+        "tool_id": "mcpbench.biomcp.gene_getter",
+        "relevance": 2
+      },
+      {
+        "tool_id": "mcpbench.biomcp.variant_searcher",
+        "relevance": 2
+      },
+      {
+        "tool_id": "mcpbench.biomcp.variant_getter",
+        "relevance": 2
+      },
+      {
+        "tool_id": "mcpbench.biomcp.article_searcher",
+        "relevance": 2
+      },
+      {
+        "tool_id": "mcpbench.biomcp.article_getter",
+        "relevance": 2
+      },
+      {
+        "tool_id": "mcpbench.paper_search.search_arxiv",
+        "relevance": 2
+      },
+      {
+        "tool_id": "mcpbench.paper_search.download_arxiv",
+        "relevance": 2
+      }
+    ],
+    "expected_servers": [
+      "mcpbench"
+    ],
+    "source_expected_tools": [
+      "BioMCP:think",
+      "BioMCP:gene_getter",
+      "BioMCP:variant_searcher",
+      "BioMCP:variant_getter",
+      "BioMCP:article_searcher",
+      "BioMCP:article_getter",
+      "Paper Search:search_arxiv",
+      "Paper Search:download_arxiv"
+    ],
+    "source": {
+      "repo": "mcp-bench",
+      "path": "git-ref-repo/mcp-bench/tasks/mcpbench_tasks_multi_2server_runner_format.json",
+      "case_id": "paper_search_biomcp_000"
+    },
+    "failure_modes": [
+      "mcp_task_runner",
+      "multi_server_task"
+    ],
+    "difficulty": "hard",
+    "correctness_notes": "MCP-Bench task from server group Paper Search+BioMCP.",
+    "should_route": true
+  },
+  {
+    "id": "TRQ-050",
+    "query": "You are planning a 3-day camping expedition to Yosemite National Park departing from San Jose, CA. Produce a detailed, self-contained itinerary that includes: 1) the top three campgrounds in Yosemite NP that have at least three amenities (e.g., showers, potable water, Wi-Fi), are not under any active alerts, and are open during the trip; 2) the operating hours of the nearest visitor center to your primary campground; 3) turn-by-turn driving directions from San Jose, CA to the primary campground and then to the visitor center; 4) travel distances and durations for all three campgrounds and the visitor center; 5) the elevation of the primary campground; 6) the upcoming 3-day weather forecast for Yosemite National Park; and 7) the nearest grocery store or convenience store within 5 km of the primary campground for resupply. Format your output as a structured JSON with sections: \"selected_campgrounds\" (name, parkCode, amenities, distance_m, duration_s), \"primary_itinerary\" (campground_name, visitor_center_name, visitor_center_hours, directions_to_campground[], directions_to_center[]), \"campground_elevation_meters\", \"weather_forecast_3_days\" (date, high_temp, low_temp, conditions), and \"nearest_resupply\" (name, distance_m, rating).",
+    "connected_tool_pool": "all_tools",
+    "required_tool_ids": [
+      "mcpbench.national_parks.findParks",
+      "mcpbench.national_parks.getCampgrounds",
+      "mcpbench.national_parks.getAlerts",
+      "mcpbench.national_parks.getVisitorCenters",
+      "mcpbench.google_maps.geocode",
+      "mcpbench.google_maps.getDirections",
+      "mcpbench.google_maps.calculateDistanceMatrix",
+      "mcpbench.google_maps.getElevation",
+      "mcpbench.google_maps.searchNearbyPlaces",
+      "mcpbench.weather_data.get_weather_forecast_tool"
+    ],
+    "graded_relevance": [
+      {
+        "tool_id": "mcpbench.national_parks.findParks",
+        "relevance": 2
+      },
+      {
+        "tool_id": "mcpbench.national_parks.getCampgrounds",
+        "relevance": 2
+      },
+      {
+        "tool_id": "mcpbench.national_parks.getAlerts",
+        "relevance": 2
+      },
+      {
+        "tool_id": "mcpbench.national_parks.getVisitorCenters",
+        "relevance": 2
+      },
+      {
+        "tool_id": "mcpbench.google_maps.geocode",
+        "relevance": 2
+      },
+      {
+        "tool_id": "mcpbench.google_maps.getDirections",
+        "relevance": 2
+      },
+      {
+        "tool_id": "mcpbench.google_maps.calculateDistanceMatrix",
+        "relevance": 2
+      },
+      {
+        "tool_id": "mcpbench.google_maps.getElevation",
+        "relevance": 2
+      },
+      {
+        "tool_id": "mcpbench.google_maps.searchNearbyPlaces",
+        "relevance": 2
+      },
+      {
+        "tool_id": "mcpbench.weather_data.get_weather_forecast_tool",
+        "relevance": 2
+      }
+    ],
+    "expected_servers": [
+      "mcpbench"
+    ],
+    "source_expected_tools": [
+      "National Parks:findParks",
+      "National Parks:getCampgrounds",
+      "National Parks:getAlerts",
+      "National Parks:getVisitorCenters",
+      "Google Maps:geocode",
+      "Google Maps:getDirections",
+      "Google Maps:calculateDistanceMatrix",
+      "Google Maps:getElevation",
+      "Google Maps:searchNearbyPlaces",
+      "Weather Data:get_weather_forecast_tool"
+    ],
+    "source": {
+      "repo": "mcp-bench",
+      "path": "git-ref-repo/mcp-bench/tasks/mcpbench_tasks_multi_3server_runner_format.json",
+      "case_id": "google_maps_weather_data_national_parks_000"
+    },
+    "failure_modes": [
+      "mcp_task_runner",
+      "multi_server_task"
+    ],
+    "difficulty": "hard",
+    "correctness_notes": "MCP-Bench task from server group Google Maps+Weather Data+National Parks.",
+    "should_route": true
+  }
+]
