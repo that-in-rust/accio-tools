@@ -17,7 +17,8 @@ from typing import Any
 
 
 ROOT = Path(__file__).resolve().parents[1]
-REF_ROOT = ROOT / "git-ref-repo"
+PROJECT_ROOT = ROOT.parent
+REF_ROOT = PROJECT_ROOT / "ignore-references" / "git-ref-repo"
 OUT_DIR = ROOT / "benchmarks" / "tool-routing-subset"
 
 
@@ -57,7 +58,10 @@ def read_json_file(path: Path) -> Any:
 
 
 def relative_path(path: Path) -> str:
-    return str(path.relative_to(ROOT))
+    try:
+        return str(path.relative_to(PROJECT_ROOT))
+    except ValueError:
+        return str(path)
 
 
 def source_pointer(repo: str, path: Path, case_id: str | None = None) -> dict[str, str]:
