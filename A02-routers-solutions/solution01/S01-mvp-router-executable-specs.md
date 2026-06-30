@@ -20,11 +20,23 @@ The MVP is not a production MCP gateway or a workflow planner. It is a correctne
 | --- | --- |
 | Feature outcome | Select one best tool or abstain from a catalog, using CPU top-5 ranking plus required cheap LLM judgment. |
 | Actors and boundaries | Reviewer/FDE uses evidence console or CLI. Rust cargo workspace owns routing, judging, and eval. OpenAI key remains session-only. |
-| Failure modes | Missing required tool in CPU top 5, wrong LLM top 1, unsafe write exposure, abstention miss, malformed catalog, malformed query file, judge API failure. |
+| Failure modes | Missing required tool in CPU top 5, wrong LLM top 1, unsafe write exposure, abstention miss, malformed catalog, malformed query file, judge API failure, benchmark gold leakage into router scoring. |
 | Performance and reliability limits | CPU ranking p95 <= 250 ms for 1,000 tools and 50 benchmark queries on a developer laptop; eval command exits non-zero on malformed fixtures. |
-| Language/runtime constraints | Rust cargo workspace plus existing Tauri/Vite UI in `A02-routers-solutions/solution01`; CPU-only tests run without network or OpenAI key. |
+| Language/runtime constraints | Rust cargo workspace plus existing Tauri/Vite UI in `A02-routers-solutions/solution01`; bundled evaluation pack loads from `A00-raw-research/benchmarks/tool-routing-subset`; CPU-only tests run without network or OpenAI key. |
 
 ## Workspace Shape
+
+The checked-in app currently starts from the Confido/PIE Tauri shell:
+
+```text
+solution01/
+  Cargo.toml              # current package: pie-tauri-core; workspace members: "." and "src-tauri"
+  ui/src/app.ts           # current exported app: createPieApp
+  src-tauri/src/commands.rs
+                           # current commands: validate_api_key, analyze_prompt, apply_selected_fixes, reverify_prompt
+```
+
+v0.0.1 SHALL migrate that shell into this target shape:
 
 ```text
 solution01/
@@ -44,6 +56,9 @@ New Rust functions and package names should follow four-word naming:
 - `judge_candidate_tools_top`
 - `evaluate_routing_subset_metrics`
 - `validate_catalog_schema_input`
+- `load_bundled_evaluation_pack`
+- `score_benchmark_route_outcome`
+- `migrate_pie_workspace_shell`
 
 Existing Tauri/Vite shell migration should use four-word names for new UI symbols:
 
@@ -52,6 +67,9 @@ Existing Tauri/Vite shell migration should use four-word names for new UI symbol
 - `loadCatalogInputSource`
 - `selectRouterModeOption`
 - `routeToolsForQuery`
+- `runCpuPreviewOnly`
+- `selectQuerySourceOption`
+- `downloadEvaluationPackFiles`
 - `renderCandidateEvidenceCards`
 - `exportRouteEvidenceReport`
 - `evaluateRoutingSubsetMetrics`
@@ -73,6 +91,13 @@ solution01/
 v0.0.1 SHALL migrate this shell instead of rebuilding the UI from scratch. The key setup card, progress strip, activity log, diagnostics export, and report download mechanics should remain; prompt-specific analysis, patching, and reverification surfaces should be removed or replaced.
 
 ## Executable Requirements
+
+### REQ-MIG-001.0: Migrate existing shell
+
+**WHEN** v0.0.1 implementation starts from the checked-in `solution01` app
+**THEN** the system SHALL migrate the current `pie-tauri-core` workspace, `createPieApp` UI entrypoint, and PIE Tauri commands into router-named workspace, UI, and command surfaces
+**AND** SHALL preserve reusable session-key, progress, activity-log, diagnostics, and download affordances
+**SHALL** remove prompt analysis, patch, version-store, and reverify behavior from user-facing router flows.
 
 ### REQ-MVP-001.0: Build cargo workspace
 
@@ -119,9 +144,9 @@ v0.0.1 SHALL migrate this shell instead of rebuilding the UI from scratch. The k
 ### REQ-MVP-007.0: Handle missing judge key
 
 **WHEN** no validated OpenAI API key is available
-**THEN** the UI and CLI SHALL label the route as `cpu_only_debug_preview`
+**THEN** the UI and CLI SHALL allow `Run CPU Preview` and label the result as `cpu_only_debug_preview`
 **AND** SHALL show CPU top 5 ranking without claiming production top-1 judgment
-**SHALL** block production route export until the judge is available.
+**SHALL** keep `Run Judged Route` and production route export disabled until the judge is available.
 
 ### REQ-MVP-008.0: Abstain safely
 
@@ -135,7 +160,8 @@ v0.0.1 SHALL migrate this shell instead of rebuilding the UI from scratch. The k
 **WHEN** a developer runs eval against `A00-raw-research/benchmarks/tool-routing-subset`
 **THEN** the system SHALL report Recall@1, Recall@3, Recall@5, Recall@10, MRR, nDCG@10 where graded labels exist, abstention accuracy, average selected candidate count, and token reduction estimate
 **AND** SHALL compare lexical BM25, schema-aware BM25, and hybrid RRF modes
-**SHALL** write JSON and Markdown reports.
+**AND** SHALL write JSON and Markdown reports
+**SHALL** read `tools.json`, `queries.json`, and `manifest.json` without requiring any external benchmark checkout.
 
 ### REQ-MVP-010.0: Protect secrets and payloads
 
@@ -158,6 +184,27 @@ v0.0.1 SHALL migrate this shell instead of rebuilding the UI from scratch. The k
 **AND** SHALL reject any unsupported runtime mode with a typed validation error
 **SHALL** keep the mode list identical across CLI, library, report metadata, and evidence console.
 
+### REQ-DATA-001.0: Bundle evaluation pack
+
+**WHEN** the app or CLI starts with no custom dataset supplied
+**THEN** the system SHALL expose the bundled evaluation pack from `A00-raw-research/benchmarks/tool-routing-subset`
+**AND** SHALL load `tools.json`, `queries.json`, and `manifest.json` as the default demo dataset
+**SHALL** allow downloading the bundled pack as inspectable JSON files or one archive.
+
+### REQ-DATA-002.0: Isolate benchmark labels
+
+**WHEN** a bundled benchmark query is routed
+**THEN** the router SHALL receive query text, optional recent context, selected router mode, and tool catalog metadata only
+**AND** SHALL keep `required_tool_ids`, `should_route`, `graded_relevance`, `source_expected_tools`, and `failure_modes` inside evaluator/reporting code
+**SHALL** fail a test if CPU ranking or LLM judge payloads contain benchmark gold labels.
+
+### REQ-DATA-003.0: Normalize query records
+
+**WHEN** `queries.json` is loaded
+**THEN** the system SHALL parse `id`, `query`, `required_tool_ids`, `should_route`, `graded_relevance`, `source_expected_tools`, and `failure_modes`
+**AND** SHALL treat `should_route=false` rows as abstention gold cases
+**SHALL** return a typed validation error for missing `id`, missing `query`, or invalid `required_tool_ids` values.
+
 ### REQ-UI-001.0: Migrate product identity
 
 **WHEN** the Tauri/Vite app renders its initial shell
@@ -170,21 +217,21 @@ v0.0.1 SHALL migrate this shell instead of rebuilding the UI from scratch. The k
 **WHEN** the user enters an OpenAI API key and clicks validate
 **THEN** the UI SHALL call `validate_judge_api_key`
 **AND** SHALL show validating, accepted, failed, and missing-key states without persisting the raw key
-**SHALL** disable production route execution until the key is accepted.
+**SHALL** disable judged production route execution until the key is accepted.
 
-### REQ-UI-003.0: Load catalog input
+### REQ-UI-003.0: Load evaluation pack
 
 **WHEN** the user opens the router workbench
-**THEN** the UI SHALL offer the default benchmark catalog and an uploaded catalog JSON path
-**AND** SHALL display catalog stats after validation: total tools, source count, schema count, and duplicate-id status
-**SHALL** show typed catalog errors without clearing the current query.
+**THEN** the UI SHALL default to the bundled evaluation pack with 947 tools and 50 queries
+**AND** SHALL offer `Download Evaluation Pack`, custom catalog upload, and custom query-file upload
+**SHALL** display pack stats after validation: total tools, query count, source count, schema count, route-required count, abstention count, and duplicate-id status.
 
-### REQ-UI-004.0: Capture route query
+### REQ-UI-004.0: Select query source
 
-**WHEN** the user enters a freeform query or selects a benchmark query
-**THEN** the UI SHALL store query text, optional recent context, and benchmark query id when present
-**AND** SHALL keep the route button disabled until catalog, query, router mode, and judge readiness are valid
-**SHALL** preserve the query when router mode changes.
+**WHEN** the router workbench is ready
+**THEN** the UI SHALL default to a searchable bundled benchmark query picker and SHALL allow switching to custom query entry
+**AND** SHALL show optional recent context input for both benchmark and custom query modes
+**SHALL** show benchmark pass/fail metrics only when a bundled benchmark query or custom query file with labels is selected.
 
 ### REQ-UI-005.0: Select router mode
 
@@ -200,6 +247,13 @@ v0.0.1 SHALL migrate this shell instead of rebuilding the UI from scratch. The k
 **AND** SHALL show progress stages for catalog validation, CPU ranking, judge review, and evidence compilation
 **SHALL** render a failed state if the judge API, catalog parser, or router engine returns a typed error.
 
+### REQ-UI-013.0: Run CPU preview
+
+**WHEN** catalog, query, and router mode are valid but no judge key is accepted
+**THEN** the UI SHALL enable `Run CPU Preview` and call `run_cpu_preview_only`
+**AND** SHALL show exactly five CPU candidate evidence cards with `cpu_only_debug_preview` labeling
+**SHALL** disable judged top-1 claims and production export until `Run Judged Route` succeeds.
+
 ### REQ-UI-007.0: Render route evidence
 
 **WHEN** a route result is returned
@@ -212,7 +266,7 @@ v0.0.1 SHALL migrate this shell instead of rebuilding the UI from scratch. The k
 **WHEN** the active query has benchmark gold labels or the user runs subset evaluation
 **THEN** the UI SHALL show Recall@1, Recall@3, Recall@5, Recall@10, MRR, abstention accuracy, token reduction estimate, and failure bucket when available
 **AND** SHALL compare lexical BM25, schema-aware BM25, and hybrid RRF in an advanced/developer panel
-**SHALL** keep the primary user journey focused on one selected route result.
+**SHALL** score `should_route=true` as required-tool survival plus judged selection, and score `should_route=false` as abstention correctness.
 
 ### REQ-UI-009.0: Export route evidence
 
@@ -246,6 +300,8 @@ v0.0.1 SHALL migrate this shell instead of rebuilding the UI from scratch. The k
 
 | req_id | test_id | type | assertion | target |
 | --- | --- | --- | --- | --- |
+| REQ-MIG-001.0 | TEST-MIG-001 | integration | current `pie-tauri-core` shell is migrated to router workspace and command names | workspace |
+| REQ-MIG-001.0 | TEST-MIG-002 | component | reusable key, progress, activity, diagnostics, and download affordances remain visible | ui/src/app.test.ts |
 | REQ-MVP-001.0 | TEST-WORK-001 | integration | `cargo test --workspace` succeeds without OpenAI key | workspace |
 | REQ-MVP-001.0 | TEST-WORK-002 | unit | malformed fixture paths return typed errors | router-cli-command-surface |
 | REQ-MVP-002.0 | TEST-CAT-001 | unit | duplicate tool ids are rejected | catalog-router-core-engine |
@@ -267,14 +323,20 @@ v0.0.1 SHALL migrate this shell instead of rebuilding the UI from scratch. The k
 | REQ-MVP-010.0 | TEST-SEC-001 | unit | exported report redacts API key shaped values | candidate-judge-openai-adapter |
 | REQ-MVP-011.0 | TEST-REP-001 | integration | export contains CPU top 5, judge top 1, metrics, and failure bucket | router-cli-command-surface |
 | REQ-MVP-012.0 | TEST-MODE-001 | unit | runtime mode enum contains exactly lexical, schema-aware, hybrid | catalog-router-core-engine |
+| REQ-DATA-001.0 | TEST-DATA-001 | integration | default pack loads 947 tools, 50 queries, and manifest metadata | benchmark-eval-metrics-runner |
+| REQ-DATA-001.0 | TEST-DATA-002 | component | Download Evaluation Pack emits inspectable JSON files or archive | ui/src/app.test.ts |
+| REQ-DATA-002.0 | TEST-DATA-003 | unit | router and judge payloads exclude benchmark gold fields | catalog-router-core-engine |
+| REQ-DATA-003.0 | TEST-DATA-004 | unit | query loader parses `required_tool_ids`, `should_route`, `graded_relevance`, `source_expected_tools`, and `failure_modes` | benchmark-eval-metrics-runner |
+| REQ-DATA-003.0 | TEST-DATA-005 | unit | `should_route=false` rows are scored as abstention gold cases | benchmark-eval-metrics-runner |
 | REQ-UI-001.0 | TEST-UI-001 | component | shell renders Tool Router Evidence Console and no PIE/prompt-patch copy | ui/src/app.test.ts |
 | REQ-UI-002.0 | TEST-UI-002 | component | key validation calls `validate_judge_api_key` and gates route execution | ui/src/app.test.ts |
-| REQ-UI-003.0 | TEST-UI-003 | component | catalog upload/default selection shows stats and typed validation errors | ui/src/app.test.ts |
-| REQ-UI-004.0 | TEST-UI-004 | component | query and benchmark selection enable route only after required inputs are ready | ui/src/app.test.ts |
+| REQ-UI-003.0 | TEST-UI-003 | component | bundled pack defaults, custom uploads, download action, and pack stats render | ui/src/app.test.ts |
+| REQ-UI-004.0 | TEST-UI-004 | component | benchmark picker is default and custom query entry is available | ui/src/app.test.ts |
 | REQ-UI-005.0 | TEST-UI-005 | component | router mode selector exposes exactly lexical, schema-aware, hybrid | ui/src/app.test.ts |
 | REQ-UI-006.0 | TEST-UI-006 | integration | Run Judged Route calls `route_tools_for_query` and shows progress stages | ui/src/app.test.ts |
+| REQ-UI-013.0 | TEST-UI-013 | integration | Run CPU Preview calls `run_cpu_preview_only` without judge key and marks debug output | ui/src/app.test.ts |
 | REQ-UI-007.0 | TEST-UI-007 | component | result renders judge decision and exactly five evidence cards | ui/src/app.test.ts |
-| REQ-UI-008.0 | TEST-UI-008 | component | benchmark health shows Recall@K, MRR, abstention, token reduction, failure bucket | ui/src/app.test.ts |
+| REQ-UI-008.0 | TEST-UI-008 | component | benchmark health scores `should_route=true` and `should_route=false` cases correctly | ui/src/app.test.ts |
 | REQ-UI-009.0 | TEST-UI-009 | integration | export calls `export_route_evidence_report` and downloads redacted report | ui/src/app.test.ts |
 | REQ-UI-010.0 | TEST-UI-010 | component | patch/reverify controls and invoke paths are absent from router UI | ui/src/app.test.ts |
 | REQ-UI-011.0 | TEST-UI-011 | component | activity log records readiness, catalog, route, export, and failure events | ui/src/app.test.ts |
@@ -285,16 +347,17 @@ v0.0.1 SHALL migrate this shell instead of rebuilding the UI from scratch. The k
 ### 1. STUB
 
 - Create cargo workspace and crate shells.
+- Add migration tests proving the current PIE shell is intentionally replaced, not ignored.
 - Add failing tests for catalog validation, lexical ranking, schema scoring, hybrid fusion, judge payload shape, eval metrics, and runtime mode list.
-- Replace PIE UI test stubs with router workbench tests for identity, key readiness, catalog input, query input, mode selection, route result, export, and removed patch flows.
-- Add fixture copies or relative fixture loading for `A00-raw-research/benchmarks/tool-routing-subset`.
+- Replace PIE UI test stubs with router workbench tests for identity, key readiness, bundled evaluation pack, query source selection, CPU preview, judged route, export, and removed patch flows.
+- Add fixture loading tests for `tools.json`, `queries.json`, `manifest.json`, `required_tool_ids`, `should_route`, `graded_relevance`, `source_expected_tools`, and `failure_modes`.
 
 ### 2. RED
 
 - Run `cargo test --workspace`.
 - Run `npm --prefix ui test`.
 - Expected failures: missing catalog types, missing router mode enum, missing scorer functions, missing judge trait, missing eval runner.
-- Expected UI failures: old PIE copy still visible, prompt-finding types still referenced, route commands missing, candidate evidence cards missing.
+- Expected UI failures: old PIE copy still visible, prompt-finding types still referenced, query picker missing, CPU preview action missing, route commands missing, candidate evidence cards missing.
 - Record the first failure per requirement ID before implementation.
 
 ### 3. GREEN
@@ -305,16 +368,17 @@ v0.0.1 SHALL migrate this shell instead of rebuilding the UI from scratch. The k
 - Implement `fuse_hybrid_rankings_rrf` using lexical and schema ranks first; leave vector disabled unless configured.
 - Implement mock judge and payload-shape enforcement before real OpenAI adapter.
 - Implement eval metrics and report writing.
-- Implement `createRouterWorkbenchApp`, `RouterWorkbenchStateData`, `loadCatalogInputSource`, `selectRouterModeOption`, `routeToolsForQuery`, `renderCandidateEvidenceCards`, `exportRouteEvidenceReport`, and `evaluateRoutingSubsetMetrics` in the Tauri/Vite shell.
+- Implement `load_bundled_evaluation_pack`, `score_benchmark_route_outcome`, and gold-label isolation before UI wiring.
+- Implement `createRouterWorkbenchApp`, `RouterWorkbenchStateData`, `loadCatalogInputSource`, `selectQuerySourceOption`, `selectRouterModeOption`, `runCpuPreviewOnly`, `routeToolsForQuery`, `renderCandidateEvidenceCards`, `downloadEvaluationPackFiles`, `exportRouteEvidenceReport`, and `evaluateRoutingSubsetMetrics` in the Tauri/Vite shell.
 - Replace prompt/finding/patch TypeScript types with catalog, query, candidate, judge, metric, and export types.
-- Replace Tauri commands with `validate_judge_api_key`, `route_tools_for_query`, `evaluate_routing_subset_metrics`, `export_route_evidence_report`, and `export_diagnostic_logs_text`.
+- Replace Tauri commands with `validate_judge_api_key`, `run_cpu_preview_only`, `route_tools_for_query`, `evaluate_routing_subset_metrics`, `download_evaluation_pack_files`, `export_route_evidence_report`, and `export_diagnostic_logs_text`.
 
 ### 4. REFACTOR
 
 - Normalize scorer interfaces behind a `RouteToolsForQuery` trait.
 - Keep four-word naming for every new public implementation symbol.
 - Split evidence-card construction from ranking math.
-- Move benchmark fixture paths into CLI config.
+- Move benchmark fixture paths into CLI config and UI evaluation-pack config.
 - Split UI rendering into four-word helpers for readiness, catalog, query, candidate cards, benchmark health, activity log, and export status.
 - Remove prompt patch/reverify modules after equivalent router tests are green.
 
@@ -323,6 +387,7 @@ v0.0.1 SHALL migrate this shell instead of rebuilding the UI from scratch. The k
 - Run full workspace tests and quality gates.
 - Run UI unit tests and responsive layout checks.
 - Run eval in CPU-only mode and compare lexical baseline against current Python baseline metrics.
+- Verify benchmark dropdown, custom query mode, and CPU preview mode in UI tests.
 - Run judge tests with mock judge; run real OpenAI smoke test only when key is explicitly supplied.
 
 ## Quality Gates
@@ -335,11 +400,12 @@ v0.0.1 SHALL migrate this shell instead of rebuilding the UI from scratch. The k
 - `cargo run -p router-cli-command-surface -- evaluate-routing-subset-metrics --dataset ../../A00-raw-research/benchmarks/tool-routing-subset --mode lexical`
 - `cargo run -p router-cli-command-surface -- evaluate-routing-subset-metrics --dataset ../../A00-raw-research/benchmarks/tool-routing-subset --mode schema-aware`
 - `cargo run -p router-cli-command-surface -- evaluate-routing-subset-metrics --dataset ../../A00-raw-research/benchmarks/tool-routing-subset --mode hybrid`
-- Every `REQ-MVP-*` ID has at least one linked test.
-- Every `REQ-UI-*` ID has at least one linked test.
+- Every `REQ-*` ID has at least one linked test.
 - No `TODO`, `STUB`, or `FIXME` introduced in implementation commits.
 - No performance claim is accepted without an eval command or test.
 - Runtime mode list contains only lexical BM25, schema-aware BM25, and hybrid RRF.
+- Bundled evaluation pack loads 947 tools, 50 queries, 46 route-required cases, and 4 abstention cases.
+- Router and judge payload tests prove benchmark gold labels are not used before evaluation.
 - Judge payload snapshot proves the full catalog is not sent to the LLM judge.
 - User-facing UI copy contains no `PIE`, `Prompt Iteration Engine`, prompt patch, updated prompt, or reverify controls.
 - Responsive screenshots at 390 px and 1200 px show no text overlap, control overflow, or incoherent table/card wrapping.
@@ -354,6 +420,9 @@ v0.0.1 SHALL migrate this shell instead of rebuilding the UI from scratch. The k
 | Vector search | Disabled by default; optional fixture/provider only. | Hybrid tests pass with no vector provider. |
 | MVP success gate | Build passes when all modes emit metrics; product claim requires schema-aware Recall@5 to beat lexical or a failure bucket report. | Eval report compares lexical, schema-aware, and hybrid modes. |
 | Lexical parity gate | Rust lexical Recall@5 within `0.02` of Python `0.6493`; MRR within `0.03` of Python `0.5223`. | CPU eval compares against checked-in baseline numbers. |
+| Bundled evaluation pack | Default UI and CLI dataset is `A00-raw-research/benchmarks/tool-routing-subset`, containing 947 tools, 50 queries, 46 route-required cases, and 4 abstention cases. | Loader tests verify counts and required query fields. |
+| Query source default | Benchmark query picker is the happy path; custom query entry is the escape hatch. | UI tests prove benchmark picker appears first and custom mode is available. |
+| No-key route action | Missing judge key enables `Run CPU Preview` but disables `Run Judged Route`. | UI and CLI tests prove CPU preview never claims production top 1. |
 | UI boundary | Rust owns engine, CLI, judge adapter, and eval output; UI consumes CLI/library later. | `route-tools-for-query` and `evaluate-routing-subset-metrics` are stable enough for the evidence console. |
 | UI migration base | Keep the Tauri/Vite shell but replace PIE prompt surfaces with router workbench surfaces. | UI tests prove no prompt patch/reverify controls remain. |
 
@@ -363,12 +432,19 @@ v0.0.1 SHALL migrate this shell instead of rebuilding the UI from scratch. The k
 | --- | --- | --- |
 | Should the advanced benchmark comparison panel be always visible? | Keep it collapsed by default so the primary journey focuses on one judged route. | During UI implementation after first screenshot pass. |
 | Should catalog upload accept JSON arrays and wrapper objects? | Support both if validation can normalize them into `ToolCatalogRecordData`. | During catalog parser implementation. |
+| Should Download Evaluation Pack be separate JSON files or one archive? | Support either; prefer one archive if Tauri download mechanics make it simple. | During UI export implementation. |
 | Should real OpenAI judge smoke tests run in CI? | No; keep mock judge in CI and make real smoke tests explicit local commands. | Before final demo packaging. |
 
 ## Rubber Duck Debugging
 
-The most important thing is that all runtime router modes produce **ranked CPU candidates**. Lexical BM25 naturally ranks. Schema-aware BM25 ranks because it is a weighted scoring extension of lexical. Hybrid RRF ranks because its job is to fuse ranked lists.
+The core MVP is captured well: CPU ranks top 5, cheap LLM judge selects top 1 or abstains, and the benchmark subset proves the claim. The three CPU modes are correctly bounded: lexical BM25, schema-aware BM25, and hybrid RRF.
 
-The LLM judge is not a mode. It is the second half of the product contract. If the judge is missing, the system can still show CPU evidence for debugging, but it cannot honestly claim a production top-1 decision.
+The main risk is target/current mismatch. Codebase-memory and source reads show the current app is still the PIE shell: `pie-tauri-core` workspace, `createPieApp`, `validate_api_key`, `analyze_prompt`, `apply_selected_fixes`, and `reverify_prompt`. Router symbols such as `route_tools_for_query`, `validate_judge_api_key`, `evaluate_routing_subset_metrics`, and `RouterWorkbench` are not implemented yet. REQ-MIG-001.0 exists to make that migration explicit.
+
+The benchmark side is good. The bundled subset contains 947 tools, 50 queries, 46 route-required cases, and 4 abstention cases. The baseline is Recall@5 `0.6493`, MRR `0.5223`, and abstention accuracy `0.0`.
+
+The biggest UX correction is query source. The happy path is a bundled benchmark query picker because it gives reviewers instant reproducible proof. Custom query entry remains available as an escape hatch, but it cannot show benchmark pass/fail unless labels are supplied.
+
+The biggest route-state correction is key gating. No key means `Run CPU Preview` is allowed and clearly labeled `cpu_only_debug_preview`. A validated judge key unlocks `Run Judged Route`, which is the only path that may claim production top 1 or abstain.
 
 Workflow planning is out of v0.0.1 because it changes the problem from ranking candidate tools to coordinating tool chains. That may become valuable later, but it would weaken the MVP by splitting evaluation between top-1 tool choice and workflow correctness.
