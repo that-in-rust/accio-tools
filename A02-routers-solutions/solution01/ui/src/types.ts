@@ -72,6 +72,7 @@ export interface JudgeDecisionOutputData {
 
 export interface RouteToolsRequestData {
   dataset_path?: string | null;
+  catalog_tools?: ToolCatalogRecordData[] | null;
   query: string;
   recent_context?: string | null;
   router_mode: RouterModeNameData;
@@ -86,6 +87,8 @@ export interface RouteToolsResponseData {
 
 export interface RoutingMetricsRequestData {
   dataset_path?: string | null;
+  catalog_tools?: ToolCatalogRecordData[] | null;
+  query_records?: RouteQueryInputData[] | null;
   router_mode: RouterModeNameData;
   max_k: number;
   threshold: number;

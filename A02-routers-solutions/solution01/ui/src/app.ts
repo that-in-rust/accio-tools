@@ -8,6 +8,7 @@ import type {
   RouteQueryInputData,
   RouteToolsRequestData,
   RouteToolsResponseData,
+  RoutingMetricsRequestData,
   RouterAppReadinessData,
   RouterModeNameData,
   ToolCatalogRecordData,
@@ -20,6 +21,7 @@ interface RouterWorkbenchOptions {
 }
 
 type QuerySourceModeData = "benchmark" | "custom";
+type UploadedSourceModeData = "bundled" | "custom";
 type AsyncActionStatusData = "idle" | "running" | "complete" | "failed";
 
 interface RouterWorkbenchStateData {
@@ -30,8 +32,11 @@ interface RouterWorkbenchStateData {
   previewStatus: AsyncActionStatusData;
   judgedStatus: AsyncActionStatusData;
   metricsStatus: AsyncActionStatusData;
+  modeComparisonStatusState: AsyncActionStatusData;
   routerMode: RouterModeNameData;
   querySource: QuerySourceModeData;
+  catalogSourceModeName: UploadedSourceModeData;
+  queryPackSourceModeName: UploadedSourceModeData;
   selectedQueryId: string;
   customQuery: string;
   recentContext: string;
@@ -40,6 +45,8 @@ interface RouterWorkbenchStateData {
   lastRouteRequest: RouteToolsRequestData | null;
   routeResponse: RouteToolsResponseData | null;
   metricsReport: MetricReportOutputData | null;
+  modeComparisonReportsList: MetricReportOutputData[];
+  uploadStatusMessage: string;
   exportMessage: string;
   errorMessage: string;
   activityLog: string[];
@@ -85,8 +92,11 @@ function createInitialStateData(): RouterWorkbenchStateData {
     previewStatus: "idle",
     judgedStatus: "idle",
     metricsStatus: "idle",
+    modeComparisonStatusState: "idle",
     routerMode: "lexical",
     querySource: "benchmark",
+    catalogSourceModeName: "bundled",
+    queryPackSourceModeName: "bundled",
     selectedQueryId: "",
     customQuery: "",
     recentContext: "",
@@ -95,6 +105,8 @@ function createInitialStateData(): RouterWorkbenchStateData {
     lastRouteRequest: null,
     routeResponse: null,
     metricsReport: null,
+    modeComparisonReportsList: [],
+    uploadStatusMessage: "",
     exportMessage: "",
     errorMessage: "",
     activityLog: ["Opened router workbench."],
@@ -121,6 +133,8 @@ async function loadEvaluationPackFiles(
     }
     state.tools = JSON.parse(toolsFile.content) as ToolCatalogRecordData[];
     state.queries = JSON.parse(queriesFile.content) as RouteQueryInputData[];
+    state.catalogSourceModeName = "bundled";
+    state.queryPackSourceModeName = "bundled";
     state.selectedQueryId = state.queries[0]?.id ?? "";
     state.packStatus = "complete";
     pushActivityLogEntry(
@@ -179,6 +193,20 @@ function bindWorkbenchEventHandlers(
     },
   );
 
+  queryElementById<HTMLInputElement>(root, "custom-catalog-input")?.addEventListener(
+    "change",
+    (event) => {
+      void loadCustomCatalogFile(event.target as HTMLInputElement, state, render);
+    },
+  );
+
+  queryElementById<HTMLInputElement>(root, "custom-query-file-input")?.addEventListener(
+    "change",
+    (event) => {
+      void loadCustomQueryFile(event.target as HTMLInputElement, state, render);
+    },
+  );
+
   queryElementById<HTMLTextAreaElement>(root, "custom-query-input")?.addEventListener(
     "input",
     (event) => {
@@ -222,6 +250,13 @@ function bindWorkbenchEventHandlers(
     },
   );
 
+  queryElementById<HTMLButtonElement>(root, "comparison-run-button")?.addEventListener(
+    "click",
+    () => {
+      void compareRoutingModesMetrics(state, invoke, render);
+    },
+  );
+
   queryElementById<HTMLButtonElement>(root, "download-pack-button")?.addEventListener(
     "click",
     () => {
@@ -242,6 +277,49 @@ function bindWorkbenchEventHandlers(
       void exportDiagnosticLogsText(state, invoke, downloadText, render);
     },
   );
+}
+
+async function loadCustomCatalogFile(
+  input: HTMLInputElement,
+  state: RouterWorkbenchStateData,
+  render: () => void,
+) {
+  const file = input.files?.[0];
+  if (!file) return;
+  try {
+    state.errorMessage = "";
+    const parsed = await parseUploadedJsonFile(file);
+    state.tools = normalizeToolCatalogRecords(parsed);
+    state.catalogSourceModeName = "custom";
+    state.uploadStatusMessage = `Loaded custom catalog with ${state.tools.length} tools.`;
+    pushActivityLogEntry(state, state.uploadStatusMessage);
+  } catch (error) {
+    state.errorMessage = errorToMessageText(error);
+    pushActivityLogEntry(state, "Custom catalog upload failed.");
+  }
+  render();
+}
+
+async function loadCustomQueryFile(
+  input: HTMLInputElement,
+  state: RouterWorkbenchStateData,
+  render: () => void,
+) {
+  const file = input.files?.[0];
+  if (!file) return;
+  try {
+    state.errorMessage = "";
+    state.queries = normalizeRouteQueryRecords(await parseUploadedJsonFile(file));
+    state.selectedQueryId = state.queries[0]?.id ?? "";
+    state.querySource = "benchmark";
+    state.queryPackSourceModeName = "custom";
+    state.uploadStatusMessage = `Loaded custom query file with ${state.queries.length} queries.`;
+    pushActivityLogEntry(state, state.uploadStatusMessage);
+  } catch (error) {
+    state.errorMessage = errorToMessageText(error);
+    pushActivityLogEntry(state, "Custom query upload failed.");
+  }
+  render();
 }
 
 async function validateJudgeSessionKey(
@@ -300,7 +378,11 @@ async function runCpuPreviewOnly(
       "run_cpu_preview_only",
       { request: routeRequest },
     );
-    state.lastRouteRequest = { ...routeRequest, api_key: null };
+    state.lastRouteRequest = {
+      ...routeRequest,
+      api_key: null,
+      catalog_tools: null,
+    };
     state.previewStatus = "complete";
     pushActivityLogEntry(state, "CPU preview returned top five candidates.");
   } catch (error) {
@@ -328,7 +410,11 @@ async function routeToolsForQuery(
       "route_tools_for_query",
       { request: routeRequest },
     );
-    state.lastRouteRequest = { ...routeRequest, api_key: null };
+    state.lastRouteRequest = {
+      ...routeRequest,
+      api_key: null,
+      catalog_tools: null,
+    };
     state.judgedStatus = "complete";
     pushActivityLogEntry(state, "Judge selected top route result.");
   } catch (error) {
@@ -352,18 +438,39 @@ async function evaluateRoutingSubsetMetrics(
     state.metricsReport = await invoke<MetricReportOutputData>(
       "evaluate_routing_subset_metrics",
       {
-        request: {
-          dataset_path: null,
-          router_mode: state.routerMode,
-          max_k: 10,
-          threshold: 2,
-        },
+        request: createMetricsRequestData(state),
       },
     );
     state.metricsStatus = "complete";
     pushActivityLogEntry(state, "Benchmark metrics completed.");
   } catch (error) {
     state.metricsStatus = "failed";
+    state.errorMessage = errorToMessageText(error);
+  }
+  render();
+}
+
+async function compareRoutingModesMetrics(
+  state: RouterWorkbenchStateData,
+  invoke: InvokeFunction,
+  render: () => void,
+) {
+  if (state.modeComparisonStatusState === "running") return;
+  try {
+    state.errorMessage = "";
+    state.modeComparisonStatusState = "running";
+    pushActivityLogEntry(state, "Comparing all router modes.");
+    render();
+    state.modeComparisonReportsList = await invoke<MetricReportOutputData[]>(
+      "compare_routing_modes_metrics",
+      {
+        request: createMetricsRequestData(state),
+      },
+    );
+    state.modeComparisonStatusState = "complete";
+    pushActivityLogEntry(state, "Mode comparison completed.");
+  } catch (error) {
+    state.modeComparisonStatusState = "failed";
     state.errorMessage = errorToMessageText(error);
   }
   render();
@@ -435,10 +542,24 @@ function createRouteRequestData(
 ): RouteToolsRequestData {
   return {
     dataset_path: null,
+    catalog_tools: state.catalogSourceModeName === "custom" ? state.tools : null,
     query: getActiveQueryTextValue(state),
     recent_context: state.recentContext.trim() || null,
     router_mode: state.routerMode,
     api_key: includeKey ? state.apiKey.trim() || null : null,
+  };
+}
+
+function createMetricsRequestData(
+  state: RouterWorkbenchStateData,
+): RoutingMetricsRequestData {
+  return {
+    dataset_path: null,
+    catalog_tools: state.catalogSourceModeName === "custom" ? state.tools : null,
+    query_records: state.queryPackSourceModeName === "custom" ? state.queries : null,
+    router_mode: state.routerMode,
+    max_k: 10,
+    threshold: 2,
   };
 }
 
@@ -447,7 +568,11 @@ function createRouteEvidencePayload(
 ): RouteEvidencePayloadData {
   return {
     route_request:
-      state.lastRouteRequest ?? { ...createRouteRequestData(state, false), api_key: null },
+      state.lastRouteRequest ?? {
+        ...createRouteRequestData(state, false),
+        api_key: null,
+        catalog_tools: null,
+      },
     route_response: state.routeResponse as RouteToolsResponseData,
     catalog_stats: createCatalogStatsSummary(state),
     benchmark_gold_match: createBenchmarkGoldMatch(state),
@@ -522,6 +647,127 @@ function canRunPreviewNow(state: RouterWorkbenchStateData): boolean {
 
 function canRunJudgedRoute(state: RouterWorkbenchStateData): boolean {
   return canRunPreviewNow(state) && state.readiness.judged_route_enabled;
+}
+
+async function parseUploadedJsonFile(file: File): Promise<unknown> {
+  try {
+    return JSON.parse(await readUploadedFileText(file)) as unknown;
+  } catch (error) {
+    throw new Error(`Invalid JSON upload: ${errorToMessageText(error)}`);
+  }
+}
+
+function readUploadedFileText(file: File): Promise<string> {
+  if ("text" in file && typeof file.text === "function") {
+    return file.text();
+  }
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.addEventListener("load", () => resolve(String(reader.result ?? "")));
+    reader.addEventListener("error", () => reject(reader.error ?? new Error("file read failed")));
+    reader.readAsText(file);
+  });
+}
+
+function normalizeToolCatalogRecords(value: unknown): ToolCatalogRecordData[] {
+  if (!Array.isArray(value)) {
+    throw new Error("Custom catalog JSON must be an array of tools.");
+  }
+  const seenIds = new Set<string>();
+  return value.map((item, index) => {
+    const record = asObjectRecordValue(item, `tool ${index + 1}`);
+    const id = requireStringFieldValue(record, "id", `tool ${index + 1}`);
+    const name = requireStringFieldValue(record, "name", id);
+    const description = requireStringFieldValue(record, "description", id);
+    const inputSchema = record.input_schema ?? {};
+    if (!isObjectRecordValue(inputSchema)) {
+      throw new Error(`Tool ${id} must include an object input_schema.`);
+    }
+    if (seenIds.has(id)) {
+      throw new Error(`Duplicate tool id ${id}.`);
+    }
+    seenIds.add(id);
+    return {
+      ...record,
+      id,
+      name,
+      description,
+      input_schema: inputSchema,
+      tags: normalizeStringListValue(record.tags),
+    } as ToolCatalogRecordData;
+  });
+}
+
+function normalizeRouteQueryRecords(value: unknown): RouteQueryInputData[] {
+  if (!Array.isArray(value)) {
+    throw new Error("Custom query JSON must be an array of query records.");
+  }
+  return value.map((item, index) => {
+    const record = asObjectRecordValue(item, `query ${index + 1}`);
+    const id = requireStringFieldValue(record, "id", `query ${index + 1}`);
+    const query = requireStringFieldValue(record, "query", id);
+    const requiredToolIds = normalizeStringListValue(record.required_tool_ids);
+    const shouldRoute = record.should_route === true;
+    if (shouldRoute && requiredToolIds.length === 0) {
+      throw new Error(`Query ${id} should route but has no required_tool_ids.`);
+    }
+    return {
+      ...record,
+      id,
+      query,
+      required_tool_ids: requiredToolIds,
+      should_route: shouldRoute,
+      graded_relevance: normalizeGradedRelevanceValue(record.graded_relevance),
+      source_expected_tools: normalizeStringListValue(record.source_expected_tools),
+      failure_modes: normalizeStringListValue(record.failure_modes),
+    } as RouteQueryInputData;
+  });
+}
+
+function normalizeGradedRelevanceValue(value: unknown) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value.map((item, index) => {
+    const record = asObjectRecordValue(item, `graded relevance ${index + 1}`);
+    return {
+      tool_id: requireStringFieldValue(record, "tool_id", `graded relevance ${index + 1}`),
+      relevance: typeof record.relevance === "number" ? record.relevance : 0,
+    };
+  });
+}
+
+function normalizeStringListValue(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value.filter((item): item is string => typeof item === "string");
+}
+
+function asObjectRecordValue(
+  value: unknown,
+  label: string,
+): Record<string, unknown> {
+  if (!isObjectRecordValue(value)) {
+    throw new Error(`${label} must be an object.`);
+  }
+  return value;
+}
+
+function isObjectRecordValue(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function requireStringFieldValue(
+  record: Record<string, unknown>,
+  field: string,
+  label: string,
+): string {
+  const value = record[field];
+  if (typeof value !== "string" || !value.trim()) {
+    throw new Error(`${label} is missing ${field}.`);
+  }
+  return value.trim();
 }
 
 function renderRouterWorkbenchView(state: RouterWorkbenchStateData): string {
@@ -600,6 +846,17 @@ function renderEvaluationPackCard(state: RouterWorkbenchStateData): string {
         <div><strong>${state.queries.filter((query) => query.should_route).length}</strong><span>route labels</span></div>
         <div><strong>${state.queries.filter((query) => !query.should_route).length}</strong><span>abstains</span></div>
       </div>
+      <div class="upload-grid">
+        <label class="field-stack" for="custom-catalog-input">
+          <span>Custom catalog JSON</span>
+          <input id="custom-catalog-input" type="file" accept="application/json,.json" />
+        </label>
+        <label class="field-stack" for="custom-query-file-input">
+          <span>Custom query JSON</span>
+          <input id="custom-query-file-input" type="file" accept="application/json,.json" />
+        </label>
+      </div>
+      <p class="query-summary">Catalog: ${state.catalogSourceModeName}. Queries: ${state.queryPackSourceModeName}.${state.uploadStatusMessage ? ` ${escapeHtmlText(state.uploadStatusMessage)}` : ""}</p>
     </section>
   `;
 }
@@ -609,7 +866,7 @@ function renderQuerySourcePanel(state: RouterWorkbenchStateData): string {
   const options = getFilteredQueriesList(state)
     .map((query) => {
       const expected = query.required_tool_ids[0] ?? "abstain";
-      return `<option value="${escapeAttributeText(query.id)}" ${query.id === state.selectedQueryId ? "selected" : ""}>${escapeHtmlText(`${query.id}: ${query.query.slice(0, 92)} -> ${expected}`)}</option>`;
+      return `<option value="${escapeAttributeText(query.id)}" ${query.id === state.selectedQueryId ? "selected" : ""}>${escapeHtmlText(`${query.id} -> ${expected}`)}</option>`;
     })
     .join("");
   return `
@@ -679,6 +936,7 @@ function renderRouteActionPanel(state: RouterWorkbenchStateData): string {
       <button id="cpu-preview-button" ${!canRunPreviewNow(state) || state.previewStatus === "running" ? "disabled" : ""}>${state.previewStatus === "running" ? "Running Preview" : "Run CPU Preview"}</button>
       <button id="judged-route-button" ${!canRunJudgedRoute(state) || state.judgedStatus === "running" ? "disabled" : ""}>${state.judgedStatus === "running" ? "Running Judge" : "Run Judged Route"}</button>
       <button id="metrics-run-button" class="secondary-action" ${state.metricsStatus === "running" || state.packStatus !== "complete" ? "disabled" : ""}>${state.metricsStatus === "running" ? "Evaluating" : "Run Benchmark Eval"}</button>
+      <button id="comparison-run-button" class="secondary-action" ${state.modeComparisonStatusState === "running" || state.packStatus !== "complete" ? "disabled" : ""}>${state.modeComparisonStatusState === "running" ? "Comparing Modes" : "Compare All Modes"}</button>
       <button id="export-evidence-button" class="secondary-action" ${!state.routeResponse ? "disabled" : ""}>Export Evidence</button>
       <button id="export-logs-button" class="secondary-action">Export Logs</button>
       ${state.exportMessage ? `<p class="export-message">${escapeHtmlText(state.exportMessage)}</p>` : ""}
@@ -764,7 +1022,49 @@ function renderBenchmarkHealthPanel(state: RouterWorkbenchStateData): string {
           `
           : `<p class="empty-state">Run benchmark eval to compare the selected CPU router.</p>`
       }
+      ${renderModeComparisonTable(state.modeComparisonReportsList)}
     </section>
+  `;
+}
+
+function renderModeComparisonTable(reports: MetricReportOutputData[]): string {
+  if (reports.length === 0) {
+    return "";
+  }
+  return `
+    <div class="comparison-block">
+      <h3>Mode Comparison</h3>
+      <div class="comparison-table-wrap">
+        <table class="comparison-table">
+          <thead>
+            <tr>
+              <th>Mode</th>
+              <th>Recall@5</th>
+              <th>MRR</th>
+              <th>nDCG@10</th>
+              <th>Abstain</th>
+              <th>Token Cut</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${reports
+              .map(
+                (report) => `
+                  <tr>
+                    <td>${routerModeLabelsData[report.router_mode]}</td>
+                    <td>${formatMetricValue(report.recall_at_k["5"] ?? 0)}</td>
+                    <td>${formatMetricValue(report.mrr)}</td>
+                    <td>${formatMetricValue(report.ndcg_at_10)}</td>
+                    <td>${formatMetricValue(report.abstention_accuracy)}</td>
+                    <td>${formatMetricValue(report.token_reduction_estimate)}</td>
+                  </tr>
+                `,
+              )
+              .join("")}
+          </tbody>
+        </table>
+      </div>
+    </div>
   `;
 }
 

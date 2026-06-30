@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "PIE",
+  "productName": "Tool Router Evidence Console",
   "version": "0.1.0",
-  "identifier": "health.confido.pie",
+  "identifier": "tools.accio.router",
   "build": {
     "beforeDevCommand": "npm --prefix ui run dev",
     "devUrl": "http://127.0.0.1:1420",
@@ -13,7 +13,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "PIE",
+        "title": "Tool Router Evidence Console",
         "width": 1200,
         "height": 800
       }

@@ -65,6 +65,8 @@ fn run_cli_command_surface(args: Vec<String>) -> Result<String, RouterTypedError
     }
     let request = RoutingMetricsRequestData {
         dataset_path,
+        catalog_tools: None,
+        query_records: None,
         router_mode,
         max_k: 10,
         threshold: 2.0,

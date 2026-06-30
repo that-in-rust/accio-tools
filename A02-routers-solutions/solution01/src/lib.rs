@@ -1,4 +1,5 @@
 use benchmark_eval_metrics_runner::{
+    compare_routing_modes_metrics as compare_modes_metrics_inner,
     evaluate_routing_subset_metrics as evaluate_subset_metrics_inner, load_bundled_evaluation_pack,
     MetricReportOutputData, RoutingMetricsRequestData,
 };
@@ -6,7 +7,8 @@ use candidate_judge_openai_adapter::{
     judge_candidate_tools_top, JudgeCandidateRequestData, JudgeDecisionOutputData,
 };
 use catalog_router_core_engine::{
-    rank_tools_for_mode, CandidateEvidenceCardData, RouterModeNameData, RouterTypedErrorKind,
+    rank_tools_for_mode, validate_catalog_schema_input, CandidateEvidenceCardData,
+    RouterModeNameData, RouterTypedErrorKind, ToolCatalogRecordData,
 };
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
@@ -39,6 +41,8 @@ pub struct RouterAppReadinessData {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct RouteToolsRequestData {
     pub dataset_path: Option<String>,
+    #[serde(default)]
+    pub catalog_tools: Option<Vec<ToolCatalogRecordData>>,
     pub query: String,
     pub recent_context: Option<String>,
     pub router_mode: RouterModeNameData,
@@ -110,9 +114,8 @@ pub fn validate_judge_api_key(api_key: Option<String>) -> RouterAppReadinessData
 pub fn run_cpu_preview_only(
     request: RouteToolsRequestData,
 ) -> Result<RouteToolsResponseData, AppError> {
-    let dataset_path = resolve_dataset_path_value(request.dataset_path.as_deref());
-    let pack = load_bundled_evaluation_pack(&dataset_path)?;
-    let candidates = rank_tools_for_mode(&request.query, &pack.tools, request.router_mode, 2.0, 5)?;
+    let tools = load_route_catalog_tools(&request)?;
+    let candidates = rank_tools_for_mode(&request.query, &tools, request.router_mode, 2.0, 5)?;
     Ok(RouteToolsResponseData {
         route_label: "cpu_only_debug_preview".to_string(),
         candidates,
@@ -146,6 +149,12 @@ pub fn evaluate_routing_subset_metrics(
     request: RoutingMetricsRequestData,
 ) -> Result<MetricReportOutputData, AppError> {
     evaluate_subset_metrics_inner(request).map_err(AppError::from)
+}
+
+pub fn compare_routing_modes_metrics(
+    request: RoutingMetricsRequestData,
+) -> Result<Vec<MetricReportOutputData>, AppError> {
+    compare_modes_metrics_inner(request).map_err(AppError::from)
 }
 
 pub fn download_evaluation_pack_files(
@@ -318,6 +327,17 @@ pub fn export_diagnostic_logs_text() -> String {
     "# Tool Router Diagnostic Log\n\nNo persisted diagnostic events yet.".to_string()
 }
 
+fn load_route_catalog_tools(
+    request: &RouteToolsRequestData,
+) -> Result<Vec<ToolCatalogRecordData>, AppError> {
+    if let Some(tools) = &request.catalog_tools {
+        validate_catalog_schema_input(tools)?;
+        return Ok(tools.clone());
+    }
+    let dataset_path = resolve_dataset_path_value(request.dataset_path.as_deref());
+    Ok(load_bundled_evaluation_pack(&dataset_path)?.tools)
+}
+
 pub fn redact_secret_values_text(value: &str) -> String {
     value
         .split_whitespace()
@@ -353,6 +373,7 @@ mod tests {
 
         let response = run_cpu_preview_only(RouteToolsRequestData {
             dataset_path: Some(directory.path().display().to_string()),
+            catalog_tools: None,
             query: "send message to channel".to_string(),
             recent_context: None,
             router_mode: RouterModeNameData::SchemaAware,
@@ -367,10 +388,48 @@ mod tests {
     }
 
     #[test]
+    fn compare_modes_returns_reports() {
+        let directory = tempdir().expect("temp dir should exist");
+        write_pack_fixture_dir(directory.path());
+
+        let reports = compare_routing_modes_metrics(RoutingMetricsRequestData {
+            dataset_path: Some(directory.path().display().to_string()),
+            catalog_tools: None,
+            query_records: None,
+            router_mode: RouterModeNameData::Lexical,
+            max_k: 10,
+            threshold: 2.0,
+        })
+        .expect("mode comparison should run");
+
+        assert_eq!(reports.len(), 3);
+        assert_eq!(reports[0].router_mode, RouterModeNameData::Lexical);
+        assert_eq!(reports[1].router_mode, RouterModeNameData::SchemaAware);
+        assert_eq!(reports[2].router_mode, RouterModeNameData::Hybrid);
+    }
+
+    #[test]
+    fn preview_uses_uploaded_catalog() {
+        let response = run_cpu_preview_only(RouteToolsRequestData {
+            dataset_path: Some("/missing/bundled/path".to_string()),
+            catalog_tools: Some(vec![create_candidate_tool_data("custom.slack_post")]),
+            query: "send message to channel".to_string(),
+            recent_context: None,
+            router_mode: RouterModeNameData::SchemaAware,
+            api_key: None,
+        })
+        .expect("uploaded catalog preview should run");
+
+        assert_eq!(response.route_label, "cpu_only_debug_preview");
+        assert_eq!(response.candidates[0].tool_id, "custom.slack_post");
+    }
+
+    #[test]
     fn export_report_includes_context() {
         let report = export_route_evidence_report(&RouteEvidencePayloadData {
             route_request: RouteToolsRequestData {
                 dataset_path: Some("fixtures/router-subset".to_string()),
+                catalog_tools: None,
                 query: "send a message to channel".to_string(),
                 recent_context: Some("previous user turn".to_string()),
                 router_mode: RouterModeNameData::Hybrid,
@@ -422,6 +481,7 @@ mod tests {
         let report = export_route_evidence_report(&RouteEvidencePayloadData {
             route_request: RouteToolsRequestData {
                 dataset_path: None,
+                catalog_tools: None,
                 query: "debug sk-secret123 should hide".to_string(),
                 recent_context: None,
                 router_mode: RouterModeNameData::Lexical,
@@ -487,6 +547,30 @@ mod tests {
             risk: "low".to_string(),
             why_matched: "schema parameter matched".to_string(),
             signal_contributions: BTreeMap::from([("schema".to_string(), 1.5)]),
+        }
+    }
+
+    fn create_candidate_tool_data(
+        tool_id: &str,
+    ) -> catalog_router_core_engine::ToolCatalogRecordData {
+        catalog_router_core_engine::ToolCatalogRecordData {
+            id: tool_id.to_string(),
+            source_tool_id: None,
+            server_id: Some("custom-upload".to_string()),
+            server_name: Some("custom".to_string()),
+            name: "post_message".to_string(),
+            description: "Send a message to a channel".to_string(),
+            input_schema: serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "channel": { "type": "string" },
+                    "message": { "type": "string" }
+                }
+            }),
+            tags: vec!["message".to_string()],
+            source: serde_json::json!({}),
+            metadata: serde_json::json!({}),
+            unknown_metadata: BTreeMap::new(),
         }
     }
 

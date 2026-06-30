@@ -6,6 +6,7 @@ pub fn run() {
         commands::run_cpu_preview_only,
         commands::route_tools_for_query,
         commands::evaluate_routing_subset_metrics,
+        commands::compare_routing_modes_metrics,
         commands::download_evaluation_pack_files,
         commands::export_route_evidence_report,
         commands::export_diagnostic_logs_text,

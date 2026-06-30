@@ -100,6 +100,74 @@ describe("router workbench journey", () => {
     });
   });
 
+  it("routes with uploaded catalog and labeled query files", async () => {
+    const invoke = createRouterInvokeMock();
+
+    renderRouterWorkbenchApp(invoke);
+    await flushAsyncViewUpdates();
+    await uploadJsonFileByLabel("Custom catalog JSON", [
+      {
+        id: "custom.slack_post",
+        name: "post_message",
+        description: "Send a message to a channel",
+        input_schema: {
+          type: "object",
+          properties: {
+            channel: { type: "string" },
+            message: { type: "string" },
+          },
+        },
+        tags: ["message"],
+      },
+    ]);
+    await flushAsyncViewUpdates();
+    await uploadJsonFileByLabel("Custom query JSON", [
+      {
+        id: "custom-query-01",
+        query: "Send a Slack message to the incident channel",
+        required_tool_ids: ["custom.slack_post"],
+        should_route: true,
+        graded_relevance: [{ tool_id: "custom.slack_post", relevance: 3 }],
+        source_expected_tools: ["custom.slack_post"],
+        failure_modes: ["confuse chat read with chat write"],
+      },
+    ]);
+    await flushAsyncViewUpdates();
+    getButtonByLabelText("Run CPU Preview").click();
+    await flushAsyncViewUpdates();
+    getButtonByLabelText("Run Benchmark Eval").click();
+    await flushAsyncViewUpdates();
+
+    expect(readScreenTextContent()).toContain("custom-query-01");
+    expect(invoke).toHaveBeenCalledWith("run_cpu_preview_only", {
+      request: expect.objectContaining({
+        query: "Send a Slack message to the incident channel",
+        catalog_tools: [
+          expect.objectContaining({
+            id: "custom.slack_post",
+            name: "post_message",
+          }),
+        ],
+      }),
+    });
+    expect(invoke).toHaveBeenCalledWith("evaluate_routing_subset_metrics", {
+      request: expect.objectContaining({
+        catalog_tools: [
+          expect.objectContaining({
+            id: "custom.slack_post",
+            name: "post_message",
+          }),
+        ],
+        query_records: [
+          expect.objectContaining({
+            id: "custom-query-01",
+            required_tool_ids: ["custom.slack_post"],
+          }),
+        ],
+      }),
+    });
+  });
+
   it("runs metrics and downloads evidence artifacts", async () => {
     const downloads: Array<{ filename: string; content: string }> = [];
     const invoke = createRouterInvokeMock();
@@ -120,6 +188,16 @@ describe("router workbench journey", () => {
     await flushAsyncViewUpdates();
 
     expect(readScreenTextContent()).toContain("0.6493");
+    expect(invoke).toHaveBeenCalledWith("evaluate_routing_subset_metrics", {
+      request: {
+        dataset_path: null,
+        catalog_tools: null,
+        query_records: null,
+        router_mode: "lexical",
+        max_k: 10,
+        threshold: 2,
+      },
+    });
     expect(invoke).toHaveBeenCalledWith("export_route_evidence_report", {
       payload: expect.objectContaining({
         route_request: expect.objectContaining({
@@ -159,6 +237,32 @@ describe("router workbench journey", () => {
     );
   });
 
+  it("compares all router modes in benchmark health panel", async () => {
+    const invoke = createRouterInvokeMock();
+
+    renderRouterWorkbenchApp(invoke);
+    await flushAsyncViewUpdates();
+    getButtonByLabelText("Compare All Modes").click();
+    await flushAsyncViewUpdates();
+
+    expect(invoke).toHaveBeenCalledWith("compare_routing_modes_metrics", {
+      request: {
+        dataset_path: null,
+        catalog_tools: null,
+        query_records: null,
+        router_mode: "lexical",
+        max_k: 10,
+        threshold: 2,
+      },
+    });
+    expect(readScreenTextContent()).toContain("Mode Comparison");
+    expect(readScreenTextContent()).toContain("Lexical BM25");
+    expect(readScreenTextContent()).toContain("Schema-aware BM25");
+    expect(readScreenTextContent()).toContain("Hybrid RRF");
+    expect(readScreenTextContent()).toContain("0.6493");
+    expect(readScreenTextContent()).toContain("0.6275");
+  });
+
   it("keeps router UI names and removes stale PIE copy", () => {
     renderRouterWorkbenchApp(createRouterInvokeMock());
     expect(document.querySelector(".router-shell")).not.toBeNull();
@@ -196,6 +300,9 @@ function createRouterInvokeMock(): InvokeFunction {
     }
     if (command === "evaluate_routing_subset_metrics") {
       return createMetricsReportData();
+    }
+    if (command === "compare_routing_modes_metrics") {
+      return createModeComparisonReports();
     }
     if (command === "export_route_evidence_report") {
       return "# Tool Router Evidence Report";
@@ -293,6 +400,26 @@ function createMetricsReportData(): MetricReportOutputData {
   };
 }
 
+function createModeComparisonReports(): MetricReportOutputData[] {
+  return [
+    createMetricsReportData(),
+    {
+      ...createMetricsReportData(),
+      recall_at_k: { "1": 0.48, "3": 0.61, "5": 0.6275, "10": 0.69 },
+      mrr: 0.5258,
+      ndcg_at_10: 0.5589,
+      router_mode: "schema_aware",
+    },
+    {
+      ...createMetricsReportData(),
+      recall_at_k: { "1": 0.47, "3": 0.6, "5": 0.6275, "10": 0.68 },
+      mrr: 0.5146,
+      ndcg_at_10: 0.5508,
+      router_mode: "hybrid",
+    },
+  ];
+}
+
 async function flushAsyncViewUpdates() {
   for (let index = 0; index < 6; index += 1) {
     await Promise.resolve();
@@ -318,6 +445,22 @@ function getInputByLabelText(label: string): HTMLInputElement {
   const input = element?.querySelector("input");
   if (!input) throw new Error(`Missing input ${label}`);
   return input;
+}
+
+async function uploadJsonFileByLabel(label: string, value: unknown) {
+  const input = getInputByLabelText(label);
+  const file = new File([JSON.stringify(value)], `${label}.json`, {
+    type: "application/json",
+  });
+  Object.defineProperty(input, "files", {
+    configurable: true,
+    value: [file],
+  });
+  input.dispatchEvent(new Event("change", { bubbles: true }));
+  for (let index = 0; index < 4; index += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  }
+  await flushAsyncViewUpdates();
 }
 
 function getTextAreaByLabelText(label: string): HTMLTextAreaElement {

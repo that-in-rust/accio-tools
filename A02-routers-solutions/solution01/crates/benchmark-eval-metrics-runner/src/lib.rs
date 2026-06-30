@@ -16,6 +16,10 @@ pub struct BundledEvaluationPackData {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct RoutingMetricsRequestData {
     pub dataset_path: Option<String>,
+    #[serde(default)]
+    pub catalog_tools: Option<Vec<ToolCatalogRecordData>>,
+    #[serde(default)]
+    pub query_records: Option<Vec<RouteQueryInputData>>,
     pub router_mode: RouterModeNameData,
     pub max_k: usize,
     pub threshold: f64,
@@ -59,12 +63,7 @@ pub fn load_bundled_evaluation_pack(
 pub fn evaluate_routing_subset_metrics(
     request: RoutingMetricsRequestData,
 ) -> Result<MetricReportOutputData, RouterTypedErrorKind> {
-    let dataset_path = request
-        .dataset_path
-        .as_deref()
-        .map(PathBuf::from)
-        .unwrap_or_else(default_dataset_path_value);
-    let pack = load_bundled_evaluation_pack(&dataset_path)?;
+    let pack = load_metrics_pack_request(&request)?;
     let predictions =
         rank_queries_for_mode(&pack, request.router_mode, request.threshold, request.max_k)?;
     let routed: Vec<&RouteQueryInputData> = pack
@@ -188,6 +187,8 @@ pub fn compare_routing_modes_metrics(
     .map(|router_mode| {
         evaluate_routing_subset_metrics(RoutingMetricsRequestData {
             dataset_path: request.dataset_path.clone(),
+            catalog_tools: request.catalog_tools.clone(),
+            query_records: request.query_records.clone(),
             router_mode,
             max_k: request.max_k,
             threshold: request.threshold,
@@ -266,6 +267,40 @@ where
 fn default_dataset_path_value() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("../../../../A00-raw-research/benchmarks/tool-routing-subset")
+}
+
+fn load_metrics_pack_request(
+    request: &RoutingMetricsRequestData,
+) -> Result<BundledEvaluationPackData, RouterTypedErrorKind> {
+    match (&request.catalog_tools, &request.query_records) {
+        (Some(tools), Some(queries)) => {
+            validate_catalog_schema_input(tools)?;
+            validate_query_record_input(queries)?;
+            Ok(BundledEvaluationPackData {
+                tools: tools.clone(),
+                queries: queries.clone(),
+                manifest: serde_json::json!({
+                    "source": "inline_upload",
+                    "tool_count": tools.len(),
+                    "query_count": queries.len()
+                }),
+            })
+        }
+        (Some(_), None) => Err(RouterTypedErrorKind::QueryValidationFailed {
+            message: "inline metrics request requires query_records with catalog_tools".to_string(),
+        }),
+        (None, Some(_)) => Err(RouterTypedErrorKind::CatalogValidationFailed {
+            message: "inline metrics request requires catalog_tools with query_records".to_string(),
+        }),
+        (None, None) => {
+            let dataset_path = request
+                .dataset_path
+                .as_deref()
+                .map(PathBuf::from)
+                .unwrap_or_else(default_dataset_path_value);
+            load_bundled_evaluation_pack(&dataset_path)
+        }
+    }
 }
 
 fn rank_queries_for_mode(
@@ -402,6 +437,8 @@ mod tests {
     fn test_metrics_report_shape() {
         let report = evaluate_routing_subset_metrics(RoutingMetricsRequestData {
             dataset_path: Some(bundled_dataset_path().display().to_string()),
+            catalog_tools: None,
+            query_records: None,
             router_mode: RouterModeNameData::Lexical,
             max_k: 10,
             threshold: 2.0,
@@ -420,6 +457,8 @@ mod tests {
     fn markdown_includes_proof_fields() {
         let report = evaluate_routing_subset_metrics(RoutingMetricsRequestData {
             dataset_path: Some(bundled_dataset_path().display().to_string()),
+            catalog_tools: None,
+            query_records: None,
             router_mode: RouterModeNameData::Lexical,
             max_k: 10,
             threshold: 2.0,
@@ -436,6 +475,8 @@ mod tests {
     fn comparison_includes_all_modes() {
         let reports = compare_routing_modes_metrics(RoutingMetricsRequestData {
             dataset_path: Some(bundled_dataset_path().display().to_string()),
+            catalog_tools: None,
+            query_records: None,
             router_mode: RouterModeNameData::Lexical,
             max_k: 10,
             threshold: 2.0,
@@ -446,5 +487,72 @@ mod tests {
         assert_eq!(reports[0].router_mode, RouterModeNameData::Lexical);
         assert_eq!(reports[1].router_mode, RouterModeNameData::SchemaAware);
         assert_eq!(reports[2].router_mode, RouterModeNameData::Hybrid);
+    }
+
+    #[test]
+    fn metrics_use_uploaded_pack() {
+        let report = evaluate_routing_subset_metrics(RoutingMetricsRequestData {
+            dataset_path: Some("/missing/on/purpose".to_string()),
+            catalog_tools: Some(vec![create_custom_catalog_tool()]),
+            query_records: Some(vec![create_custom_query_record()]),
+            router_mode: RouterModeNameData::Lexical,
+            max_k: 10,
+            threshold: 2.0,
+        })
+        .expect("inline upload metrics should run without bundled path");
+
+        assert_eq!(report.queries, 1);
+        assert_eq!(report.route_required_queries, 1);
+        assert_eq!(report.recall_at_k.get("5").copied(), Some(1.0));
+        assert_eq!(report.mrr, 1.0);
+    }
+
+    #[test]
+    fn inline_pack_requires_pair() {
+        let error = evaluate_routing_subset_metrics(RoutingMetricsRequestData {
+            dataset_path: None,
+            catalog_tools: Some(vec![create_custom_catalog_tool()]),
+            query_records: None,
+            router_mode: RouterModeNameData::Lexical,
+            max_k: 10,
+            threshold: 2.0,
+        })
+        .expect_err("partial inline request should fail");
+
+        assert!(error
+            .to_string()
+            .contains("requires query_records with catalog_tools"));
+    }
+
+    fn create_custom_catalog_tool() -> ToolCatalogRecordData {
+        ToolCatalogRecordData {
+            id: "custom.slack_post".to_string(),
+            source_tool_id: None,
+            server_id: Some("custom".to_string()),
+            server_name: Some("Custom".to_string()),
+            name: "post_message".to_string(),
+            description: "Send Slack messages to incident channels.".to_string(),
+            input_schema: serde_json::json!({"type": "object"}),
+            tags: vec!["slack".to_string(), "message".to_string()],
+            source: serde_json::Value::Null,
+            metadata: serde_json::Value::Null,
+            unknown_metadata: BTreeMap::new(),
+        }
+    }
+
+    fn create_custom_query_record() -> RouteQueryInputData {
+        RouteQueryInputData {
+            id: "custom-query-01".to_string(),
+            query: "Send a Slack message to the incident channel".to_string(),
+            required_tool_ids: vec!["custom.slack_post".to_string()],
+            should_route: true,
+            graded_relevance: vec![catalog_router_core_engine::GradedRelevanceItemData {
+                tool_id: "custom.slack_post".to_string(),
+                relevance: 3,
+            }],
+            source_expected_tools: vec!["custom.slack_post".to_string()],
+            failure_modes: vec!["confuse chat read with chat write".to_string()],
+            unknown_metadata: BTreeMap::new(),
+        }
     }
 }

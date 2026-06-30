@@ -2,8 +2,8 @@
 
 - Task: Implement router MVP executable specs
 - Created: 2026-06-30 19:10:59Z
-- Updated: 2026-06-30 20:04:27Z
-- Current Phase: Refactor
+- Updated: 2026-06-30 20:40:44Z
+- Current Phase: Green
 - Status: active
 
 ## Sessions
@@ -312,3 +312,223 @@ Make REQ-MVP-009 mode comparison provable through a single reviewer-facing CLI c
 - npm test: passing - 6 UI tests.
 - npm run build: passing.
 - CLI compare-routing-modes-metrics smoke: passing - lexical Recall@5 0.6493, schema-aware Recall@5 0.6275, hybrid Recall@5 0.6275.
+
+### Session: 2026-06-30 20:21:40Z
+
+#### Current Phase: Green
+
+#### Tests Written:
+- compare_modes_returns_reports: passing - root library returns lexical, schema-aware, and hybrid metric reports
+- compares all router modes in benchmark health panel: passing - UI calls compare_routing_modes_metrics and renders mode comparison table
+
+#### Implementation Progress:
+- src/lib.rs: added compare_routing_modes_metrics root wrapper
+- src-tauri/src/commands.rs and src-tauri/src/lib.rs: registered compare_routing_modes_metrics Tauri command
+- ui/src/app.ts and ui/src/styles.css: added Compare All Modes action and responsive metrics table
+
+#### Current Focus:
+Expose all-mode router comparison in Tauri and evidence console
+
+#### Next Steps:
+- Add custom catalog and custom labeled query file upload controls with validation errors
+- Run responsive visual checks at 390 px and 1200 px
+- Audit and remove stale PIE source/config surfaces that are no longer active
+
+#### Context Notes:
+- CodeGraphContext narrow index found compare_routing_modes_metrics in benchmark crate, root lib, Tauri command, and compareRoutingModesMetrics in UI.
+- codebase-memory scan available at /tmp/codex-code-intel/codebase-memory/accio-tools-20260701-014036; corrected search uses project selector.
+
+#### Performance/Metrics:
+- cargo test --workspace: passing - 18 Rust tests plus doctests after adding compare_modes_returns_reports
+- cargo clippy --workspace --all-targets -- -D warnings: passing
+- npm test: passing - 7 UI tests
+- npm run build: passing
+- CLI compare-routing-modes-metrics smoke: passing - reports lexical/schema-aware/hybrid Recall@5 values
+
+### Session: 2026-06-30 20:28:25Z
+
+#### Current Phase: Green
+
+#### Tests Written:
+- preview_uses_uploaded_catalog: passing - root route preview accepts catalog_tools and does not require bundled dataset path
+- routes with uploaded catalog and labeled query files: passing - UI uploads custom tools and labeled query records then sends catalog_tools to run_cpu_preview_only
+
+#### Implementation Progress:
+- src/lib.rs: added catalog_tools to RouteToolsRequestData and load_route_catalog_tools validation path
+- ui/src/types.ts: added catalog_tools to typed route request
+- ui/src/app.ts: added custom catalog/query upload controls, JSON parsing, record normalization, and sanitized evidence export request
+- ui/src/styles.css: added responsive upload-grid styling
+
+#### Current Focus:
+Route uploaded catalog and labeled query files through the evidence console
+
+#### Next Steps:
+- Run responsive visual checks at 390 px and 1200 px
+- Audit and remove stale PIE source/config surfaces that are no longer active
+- Decide whether custom uploaded query files should also drive full aggregate eval or stay single-route evidence in v0.0.1
+
+#### Context Notes:
+- Uploaded catalog requests are validated by Rust validate_catalog_schema_input before ranking.
+- UI evidence export sanitizes catalog_tools back to null so full uploaded catalogs are not embedded in route reports.
+- CodeGraphContext upload index found loadCustomCatalogFile and normalizeToolCatalogRecords; codebase-memory scan /tmp/codex-code-intel/codebase-memory/accio-tools-20260701-015747 found loadCustomCatalogFile, load_route_catalog_tools, normalizeToolCatalogRecords.
+
+#### Performance/Metrics:
+- cargo test --workspace: passing - 19 Rust tests plus doctests
+- cargo fmt --all --check: passing after cargo fmt
+- cargo clippy --workspace --all-targets -- -D warnings: passing
+- npm test: passing - 8 UI tests
+- npm run build: passing
+- CLI compare-routing-modes-metrics smoke: passing after upload slice
+
+### Session: 2026-06-30 20:32:39Z
+
+#### Current Phase: Green
+
+#### Tests Written:
+- responsive visual audit 390px: passing - Playwright/Chrome screenshot had bodyOverflow 0 and no element overflow offenders
+- responsive visual audit 1200px: passing - Playwright/Chrome screenshot had bodyOverflow 0 and no element overflow offenders
+
+#### Implementation Progress:
+- ui/index.html: renamed document title to Tool Router Evidence Console
+- ui/src/app.ts: shortened benchmark select labels while keeping full details in query summary
+
+#### Current Focus:
+Verify responsive evidence console layout
+
+#### Next Steps:
+- Audit and remove stale PIE source/config surfaces that are no longer active
+- Decide whether custom uploaded query files should also drive full aggregate eval or stay single-route evidence in v0.0.1
+- Run final requirement-by-requirement completion audit before marking the goal complete
+
+#### Context Notes:
+- Responsive screenshots saved at /tmp/tool-router-responsive-390.png and /tmp/tool-router-responsive-1200.png.
+- Initial 390px audit found select internal overflow; fixed by shortening option labels.
+
+#### Performance/Metrics:
+- Playwright via system Chrome: 390px bodyOverflow 0, offenders []
+- Playwright via system Chrome: 1200px bodyOverflow 0, offenders []
+- npm test: passing - 8 UI tests after visual fix
+- npm run build: passing after title/select changes
+
+### Session: 2026-06-30 20:35:59Z
+
+#### Current Phase: Green
+
+#### Tests Written:
+- active UI/Tauri PIE copy scan: passing - rg over ui and src-tauri only finds test assertions, not product copy
+- tauri bundle build: passing - npm run tauri:build produced app and dmg bundles with Tool Router Evidence Console name
+
+#### Implementation Progress:
+- ui/index.html: router document title
+- src-tauri/tauri.conf.json: router product name, window title, and bundle identifier
+- src-tauri/capabilities/default.json and gen schema: router permission description
+
+#### Current Focus:
+Finish active Tauri router identity checks
+
+#### Next Steps:
+- Audit and remove stale inactive PIE source modules under solution01/src or formally quarantine them
+- Decide whether custom uploaded query files should drive aggregate eval in v0.0.1
+- Run final requirement-by-requirement completion audit before marking the goal complete
+
+#### Context Notes:
+- Tauri build used --no-sign per existing package script and produced Tool Router Evidence Console.app plus Tool Router Evidence Console_0.1.0_aarch64.dmg.
+
+#### Performance/Metrics:
+- cargo test --workspace: passing - 19 Rust tests plus doctests
+- cargo clippy --workspace --all-targets -- -D warnings: passing
+- npm test && npm run build: passing
+- npm run tauri:build: passing
+
+### Session: 2026-06-30 20:40:44Z
+
+#### Current Phase: Green
+
+#### Tests Written:
+- legacy prompt command search: passing - rg/codebase-memory find no active analyze_prompt/apply_selected_fixes/reverify_prompt/verify_and_export_update functions
+- router command graph search: passing - codebase-memory finds route_tools_for_query in root lib and Tauri command surface
+
+#### Implementation Progress:
+- src/*.rs: deleted inactive PIE prompt analysis, patch, reverify, reporter, model, OpenAI prompt-client, and version-store modules
+
+#### Current Focus:
+Remove stale inactive PIE source modules
+
+#### Next Steps:
+- Make custom uploaded labeled query files drive aggregate eval and mode comparison
+- Run final requirement-by-requirement completion audit before marking the goal complete
+- Commit and push once final audit is clean or user asks for checkpoint
+
+#### Context Notes:
+- Deleted files were not referenced by root src/lib.rs or Tauri command registration; active compiled code uses router surfaces.
+- CodeGraphContext cleanup index found no analyze_prompt and found route_tools_for_query at src/lib.rs:126.
+- codebase-memory scan /tmp/codex-code-intel/codebase-memory/accio-tools-20260701-021001 found no legacy prompt command functions and found route_tools_for_query in src/lib.rs plus src-tauri/src/commands.rs.
+
+#### Performance/Metrics:
+- cargo test --workspace: passing - 19 Rust tests plus doctests
+- cargo fmt --all --check: passing
+- cargo clippy --workspace --all-targets -- -D warnings: passing
+- npm test && npm run build: passing after async upload helper stabilization
+
+### Session: 2026-06-30 20:45:22Z
+
+#### Current Phase: Green
+
+#### Tests Written:
+- metrics_use_uploaded_pack: passing - aggregate metrics evaluate an uploaded tool/query pack without requiring the bundled dataset path
+- inline_pack_requires_pair: passing - partial inline metrics requests fail with a typed validation error
+- routes with uploaded catalog and labeled query files: passing - UI sends uploaded catalog_tools and query_records into evaluate_routing_subset_metrics
+
+#### Implementation Progress:
+- benchmark-eval-metrics-runner: added optional catalog_tools and query_records to RoutingMetricsRequestData
+- benchmark-eval-metrics-runner: added load_metrics_pack_request to validate inline upload packs or fall back to the bundled pack
+- router-cli-command-surface: preserved CLI bundled-pack behavior by explicitly passing no inline upload fields
+- ui/src/app.ts: added createMetricsRequestData so benchmark eval and mode comparison share upload-aware request construction
+- ui/src/types.ts and ui/src/app.test.ts: typed and verified upload-aware metrics requests
+
+#### Current Focus:
+Make custom uploaded labeled query files drive aggregate eval and mode comparison
+
+#### Next Steps:
+- Run full workspace verification after inline metrics wiring
+- Commit and push router console changes once verification is clean
+
+#### Context Notes:
+- This closes the earlier custom upload gap: single-query routing, aggregate eval, and all-mode comparison now use the same uploaded pack when both files are loaded.
+- If only one inline pack side is present, Rust returns a typed validation error instead of silently mixing uploaded and bundled data.
+
+#### Performance/Metrics:
+- cargo fmt --all --check: passing
+- cargo test -p benchmark-eval-metrics-runner -p router-cli-command-surface: passing - 9 focused Rust tests
+- npm test: passing - 8 UI tests
+
+### Session: 2026-06-30 20:47:30Z
+
+#### Current Phase: Verify
+
+#### Tests Written:
+- full workspace verification: passing - Rust, UI, CLI, and Tauri packaging gates were rerun after inline upload metrics wiring
+
+#### Implementation Progress:
+- no production code changes in this checkpoint; captured final pre-commit verification evidence
+
+#### Current Focus:
+Commit and push the router evidence console implementation
+
+#### Next Steps:
+- Stage all router console changes
+- Commit with detailed commentary
+- Push main to origin
+
+#### Context Notes:
+- The final CLI smoke wrote comparison reports to /tmp/tool-router-final-comparison.
+- The Tauri bundle check produced Tool Router Evidence Console.app and Tool Router Evidence Console_0.1.0_aarch64.dmg with --no-sign.
+
+#### Performance/Metrics:
+- cargo fmt --all --check: passing
+- npm test: passing - 8 UI tests
+- npm run build: passing
+- cargo test --workspace: passing - 21 Rust tests plus doctests
+- cargo clippy --workspace --all-targets -- -D warnings: passing
+- npm run tauri:build: passing from ui package
+- cargo run -p router-cli-command-surface -- compare-routing-modes-metrics --dataset ../../A00-raw-research/benchmarks/tool-routing-subset --report-dir /tmp/tool-router-final-comparison: passing

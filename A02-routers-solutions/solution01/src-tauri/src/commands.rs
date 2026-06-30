@@ -1,5 +1,6 @@
 use benchmark_eval_metrics_runner::{MetricReportOutputData, RoutingMetricsRequestData};
 use tool_router_tauri_core::{
+    compare_routing_modes_metrics as compare_metrics_inner,
     download_evaluation_pack_files as download_pack_files_inner,
     evaluate_routing_subset_metrics as evaluate_metrics_inner,
     export_diagnostic_logs_text as export_logs_inner,
@@ -36,6 +37,13 @@ pub async fn evaluate_routing_subset_metrics(
     request: RoutingMetricsRequestData,
 ) -> Result<MetricReportOutputData, AppError> {
     evaluate_metrics_inner(request)
+}
+
+#[tauri::command]
+pub async fn compare_routing_modes_metrics(
+    request: RoutingMetricsRequestData,
+) -> Result<Vec<MetricReportOutputData>, AppError> {
+    compare_metrics_inner(request)
 }
 
 #[tauri::command]
