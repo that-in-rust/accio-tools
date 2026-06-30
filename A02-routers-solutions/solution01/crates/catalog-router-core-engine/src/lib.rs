@@ -252,7 +252,7 @@ pub fn score_schema_capability_signals(
         let description_terms: BTreeSet<String> = tokenize_text_terms_only(&tool.description)
             .into_iter()
             .collect();
-        let schema_text = flatten_json_value_text(&tool.input_schema);
+        let schema_text = flatten_json_schema_text(&tool.input_schema);
         let schema_terms: BTreeSet<String> =
             tokenize_text_terms_only(&schema_text).into_iter().collect();
 
@@ -313,18 +313,51 @@ pub fn score_schema_capability_signals(
     Ok(candidates)
 }
 
+pub fn rank_tools_for_mode(
+    query: &str,
+    tools: &[ToolCatalogRecordData],
+    router_mode: RouterModeNameData,
+    threshold: f64,
+    max_candidates: usize,
+) -> Result<Vec<CandidateEvidenceCardData>, RouterTypedErrorKind> {
+    match router_mode {
+        RouterModeNameData::Lexical => {
+            rank_lexical_tools_baseline(query, tools, threshold, max_candidates)
+        }
+        RouterModeNameData::SchemaAware => {
+            score_schema_capability_signals(query, tools, threshold, max_candidates)
+        }
+        RouterModeNameData::Hybrid => {
+            let lexical = rank_lexical_tools_baseline(query, tools, threshold, max_candidates)?;
+            let schema = score_schema_capability_signals(query, tools, threshold, max_candidates)?;
+            Ok(fuse_hybrid_rankings_rrf(&lexical, &schema, max_candidates))
+        }
+    }
+}
+
 pub fn fuse_hybrid_rankings_rrf(
     lexical: &[CandidateEvidenceCardData],
     schema: &[CandidateEvidenceCardData],
     max_candidates: usize,
 ) -> Vec<CandidateEvidenceCardData> {
     let mut scores: HashMap<String, CandidateEvidenceCardData> = HashMap::new();
-    for (weight, candidates) in [(1.0, lexical), (1.4, schema)] {
+    for (signal_name, weight, candidates) in
+        [("lexical_rrf", 1.0, lexical), ("schema_rrf", 1.4, schema)]
+    {
         for candidate in candidates {
-            let entry = scores
-                .entry(candidate.tool_id.clone())
-                .or_insert_with(|| candidate.clone());
-            entry.score += weight / (60.0 + candidate.rank as f64);
+            let contribution = weight / (60.0 + candidate.rank as f64);
+            let entry = scores.entry(candidate.tool_id.clone()).or_insert_with(|| {
+                let mut card = candidate.clone();
+                card.score = 0.0;
+                card.signal_contributions = BTreeMap::new();
+                card
+            });
+            entry.score += contribution;
+            entry
+                .signal_contributions
+                .insert(signal_name.to_string(), contribution);
+            merge_signal_contributions_map(entry, candidate);
+            merge_candidate_evidence_lists(entry, candidate);
         }
     }
     let mut fused: Vec<_> = scores.into_values().collect();
@@ -340,6 +373,42 @@ pub fn fuse_hybrid_rankings_rrf(
         candidate.rank = index + 1;
     }
     fused
+}
+
+fn merge_signal_contributions_map(
+    target: &mut CandidateEvidenceCardData,
+    source: &CandidateEvidenceCardData,
+) {
+    for (name, value) in &source.signal_contributions {
+        target
+            .signal_contributions
+            .entry(name.clone())
+            .or_insert(*value);
+    }
+    if target.risk == "low" && source.risk != "low" {
+        target.risk = source.risk.clone();
+    }
+}
+
+fn merge_candidate_evidence_lists(
+    target: &mut CandidateEvidenceCardData,
+    source: &CandidateEvidenceCardData,
+) {
+    for term in &source.matched_terms {
+        if !target.matched_terms.contains(term) {
+            target.matched_terms.push(term.clone());
+        }
+    }
+    for field in &source.matched_fields {
+        if !target.matched_fields.contains(field) {
+            target.matched_fields.push(field.clone());
+        }
+    }
+    for capability in &source.capability_match {
+        if !target.capability_match.contains(capability) {
+            target.capability_match.push(capability.clone());
+        }
+    }
 }
 
 pub fn tokenize_text_terms_only(value: &str) -> Vec<String> {
@@ -381,6 +450,25 @@ fn flatten_json_value_text(value: &serde_json::Value) -> String {
         serde_json::Value::String(value) => value.clone(),
         serde_json::Value::Number(value) => value.to_string(),
         serde_json::Value::Bool(value) => value.to_string(),
+        serde_json::Value::Null => String::new(),
+    }
+}
+
+fn flatten_json_schema_text(value: &serde_json::Value) -> String {
+    match value {
+        serde_json::Value::Object(map) => map
+            .iter()
+            .flat_map(|(key, value)| [key.clone(), flatten_json_schema_text(value)])
+            .collect::<Vec<_>>()
+            .join(" "),
+        serde_json::Value::Array(values) => values
+            .iter()
+            .map(flatten_json_schema_text)
+            .collect::<Vec<_>>()
+            .join(" "),
+        serde_json::Value::String(text) => text.clone(),
+        serde_json::Value::Number(number) => number.to_string(),
+        serde_json::Value::Bool(boolean) => boolean.to_string(),
         serde_json::Value::Null => String::new(),
     }
 }
@@ -481,6 +569,28 @@ mod tests {
         }
     }
 
+    fn create_channel_tool_data(id: &str, name: &str, description: &str) -> ToolCatalogRecordData {
+        ToolCatalogRecordData {
+            id: id.to_string(),
+            source_tool_id: None,
+            server_id: None,
+            server_name: Some("test".to_string()),
+            name: name.to_string(),
+            description: description.to_string(),
+            input_schema: serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "channel": { "type": "string" },
+                    "message": { "type": "string" }
+                }
+            }),
+            tags: vec![],
+            source: serde_json::json!({}),
+            metadata: serde_json::json!({}),
+            unknown_metadata: BTreeMap::new(),
+        }
+    }
+
     #[test]
     fn test_catalog_duplicate_rejects() {
         let tools = vec![
@@ -504,5 +614,48 @@ mod tests {
             .expect("ranker should run");
         assert_eq!(ranked[0].tool_id, "tool.search");
         assert!(ranked[0].matched_terms.contains(&"search".to_string()));
+    }
+
+    #[test]
+    fn mode_router_adds_schema() {
+        let tools = vec![create_channel_tool_data(
+            "tool.channel",
+            "send_notification",
+            "Post a message",
+        )];
+        let ranked = rank_tools_for_mode(
+            "send message to channel",
+            &tools,
+            RouterModeNameData::SchemaAware,
+            0.0,
+            5,
+        )
+        .expect("schema mode should rank");
+
+        assert_eq!(ranked[0].tool_id, "tool.channel");
+        assert!(ranked[0].signal_contributions.contains_key("schema"));
+        assert!(ranked[0]
+            .capability_match
+            .contains(&"parameter".to_string()));
+    }
+
+    #[test]
+    fn hybrid_fusion_keeps_signals() {
+        let tools = vec![
+            create_tool_record_value("tool.channel", "send_notification", "Post a message"),
+            create_tool_record_value("tool.reader", "message_reader", "Read a message"),
+        ];
+        let ranked = rank_tools_for_mode(
+            "send message to channel",
+            &tools,
+            RouterModeNameData::Hybrid,
+            0.0,
+            5,
+        )
+        .expect("hybrid mode should rank");
+
+        assert!(ranked[0].signal_contributions.contains_key("lexical_rrf"));
+        assert!(ranked[0].signal_contributions.contains_key("schema_rrf"));
+        assert!(ranked[0].signal_contributions.contains_key("schema"));
     }
 }

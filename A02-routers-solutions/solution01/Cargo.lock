@@ -248,6 +248,7 @@ version = "0.1.0"
 dependencies = [
  "catalog-router-core-engine",
  "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -2486,6 +2487,7 @@ dependencies = [
  "benchmark-eval-metrics-runner",
  "catalog-router-core-engine",
  "serde_json",
+ "tempfile",
 ]
 
 [[package]]

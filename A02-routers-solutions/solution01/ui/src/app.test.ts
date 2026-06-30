@@ -20,6 +20,7 @@ describe("router workbench journey", () => {
     renderRouterWorkbenchApp(invoke);
     await flushAsyncViewUpdates();
 
+    expect(readScreenTextContent()).toContain("Tool Router Evidence Console");
     expect(readScreenTextContent()).toContain("Evaluate Inquiry");
     expect(readScreenTextContent()).toContain("947");
     expect(readScreenTextContent()).toContain("50");
@@ -119,6 +120,28 @@ describe("router workbench journey", () => {
     await flushAsyncViewUpdates();
 
     expect(readScreenTextContent()).toContain("0.6493");
+    expect(invoke).toHaveBeenCalledWith("export_route_evidence_report", {
+      payload: expect.objectContaining({
+        route_request: expect.objectContaining({
+          query: "Find nearby calendar availability for a follow-up visit 0",
+          router_mode: "lexical",
+          api_key: null,
+        }),
+        catalog_stats: expect.objectContaining({
+          tool_count: 947,
+          query_count: 50,
+          route_required_count: 46,
+          abstention_count: 4,
+        }),
+        benchmark_gold_match: expect.objectContaining({
+          query_id: "query-00",
+          gold_match_status: "matched_required_tool",
+        }),
+        metrics_report: expect.objectContaining({
+          token_reduction_estimate: 0.9894,
+        }),
+      }),
+    });
     expect(downloads).toEqual(
       expect.arrayContaining([
         {
@@ -166,7 +189,10 @@ function createRouterInvokeMock(): InvokeFunction {
     }
     if (command === "route_tools_for_query") {
       const request = args?.request as RouteToolsRequestData;
-      return createRouteResponseData(request.api_key ? "judged_route" : "cpu_only_debug_preview", true);
+      return createRouteResponseData(
+        request.api_key ? "judged_route" : "cpu_only_debug_preview",
+        true,
+      );
     }
     if (command === "evaluate_routing_subset_metrics") {
       return createMetricsReportData();
@@ -262,6 +288,7 @@ function createMetricsReportData(): MetricReportOutputData {
     ndcg_at_10: 0.5553,
     abstention_accuracy: 0,
     average_selected_candidate_count: 5,
+    token_reduction_estimate: 0.9894,
     router_mode: "lexical",
   };
 }

@@ -32,6 +32,15 @@ pub fn judge_candidate_tools_top(
             message: "judge payload cannot contain more than five candidates".to_string(),
         });
     }
+    if request.candidates.is_empty() {
+        return Ok(JudgeDecisionOutputData {
+            selected_tool_id: None,
+            confidence: 0.0,
+            reason: "No CPU candidate had enough evidence to route safely.".to_string(),
+            decision: JudgeDecisionKindData::Abstain,
+            needs_more_metadata: true,
+        });
+    }
     let selected_tool_id = request
         .candidates
         .first()
@@ -74,5 +83,39 @@ mod tests {
                 .collect(),
         };
         assert!(judge_candidate_tools_top(&request).is_err());
+    }
+
+    #[test]
+    fn judge_abstains_without_candidates() {
+        let request = JudgeCandidateRequestData {
+            query: "route unsupported action".to_string(),
+            recent_context: None,
+            candidates: Vec::new(),
+        };
+        let decision = judge_candidate_tools_top(&request).expect("judge should respond");
+
+        assert_eq!(decision.decision, JudgeDecisionKindData::Abstain);
+        assert_eq!(decision.selected_tool_id, None);
+        assert!(decision.needs_more_metadata);
+    }
+
+    #[test]
+    fn judge_payload_excludes_labels() {
+        let request = JudgeCandidateRequestData {
+            query: "search".to_string(),
+            recent_context: None,
+            candidates: vec![create_candidate_card_data("tool.1", 1)],
+        };
+        let payload = serde_json::to_string(&request).expect("payload should serialize");
+
+        for forbidden in [
+            "required_tool_ids",
+            "should_route",
+            "graded_relevance",
+            "source_expected_tools",
+            "failure_modes",
+        ] {
+            assert!(!payload.contains(forbidden));
+        }
     }
 }

@@ -100,5 +100,32 @@ export interface MetricReportOutputData {
   ndcg_at_10: number;
   abstention_accuracy: number;
   average_selected_candidate_count: number;
+  token_reduction_estimate: number;
   router_mode: RouterModeNameData;
+}
+
+export interface CatalogStatsSummaryData {
+  tool_count: number;
+  query_count: number;
+  source_count: number;
+  schema_count: number;
+  route_required_count: number;
+  abstention_count: number;
+}
+
+export interface BenchmarkGoldMatchData {
+  query_id: string;
+  should_route: boolean;
+  required_tool_ids: string[];
+  selected_tool_id?: string | null;
+  gold_match_status: string;
+  failure_bucket: string;
+}
+
+export interface RouteEvidencePayloadData {
+  route_request: RouteToolsRequestData;
+  route_response: RouteToolsResponseData;
+  catalog_stats: CatalogStatsSummaryData;
+  benchmark_gold_match?: BenchmarkGoldMatchData | null;
+  metrics_report?: MetricReportOutputData | null;
 }

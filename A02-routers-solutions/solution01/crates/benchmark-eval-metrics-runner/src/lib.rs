@@ -1,6 +1,5 @@
 use catalog_router_core_engine::{
-    fuse_hybrid_rankings_rrf, rank_lexical_tools_baseline, score_schema_capability_signals,
-    validate_catalog_schema_input, validate_query_record_input, CandidateEvidenceCardData,
+    rank_tools_for_mode, validate_catalog_schema_input, validate_query_record_input,
     RouteQueryInputData, RouterModeNameData, RouterTypedErrorKind, ToolCatalogRecordData,
 };
 use serde::{Deserialize, Serialize};
@@ -32,6 +31,7 @@ pub struct MetricReportOutputData {
     pub ndcg_at_10: f64,
     pub abstention_accuracy: f64,
     pub average_selected_candidate_count: f64,
+    pub token_reduction_estimate: f64,
     pub router_mode: RouterModeNameData,
 }
 
@@ -154,6 +154,12 @@ pub fn evaluate_routing_subset_metrics(
         })
         .collect();
 
+    let average_selected_candidate_count =
+        round_metric_value(candidate_count_sum as f64 / pack.queries.len().max(1) as f64);
+    let token_reduction_estimate = round_metric_value(
+        1.0 - (average_selected_candidate_count / pack.tools.len().max(1) as f64),
+    );
+
     Ok(MetricReportOutputData {
         queries: pack.queries.len(),
         route_required_queries: routed.len(),
@@ -164,11 +170,30 @@ pub fn evaluate_routing_subset_metrics(
         abstention_accuracy: round_metric_value(
             abstention_hits as f64 / abstentions.len().max(1) as f64,
         ),
-        average_selected_candidate_count: round_metric_value(
-            candidate_count_sum as f64 / pack.queries.len().max(1) as f64,
-        ),
+        average_selected_candidate_count,
+        token_reduction_estimate,
         router_mode: request.router_mode,
     })
+}
+
+pub fn compare_routing_modes_metrics(
+    request: RoutingMetricsRequestData,
+) -> Result<Vec<MetricReportOutputData>, RouterTypedErrorKind> {
+    [
+        RouterModeNameData::Lexical,
+        RouterModeNameData::SchemaAware,
+        RouterModeNameData::Hybrid,
+    ]
+    .into_iter()
+    .map(|router_mode| {
+        evaluate_routing_subset_metrics(RoutingMetricsRequestData {
+            dataset_path: request.dataset_path.clone(),
+            router_mode,
+            max_k: request.max_k,
+            threshold: request.threshold,
+        })
+    })
+    .collect()
 }
 
 pub fn write_evaluation_reports_files(
@@ -189,6 +214,32 @@ pub fn write_evaluation_reports_files(
         }
     })?;
     std::fs::write(&markdown_path, create_markdown_report_text(report)).map_err(|error| {
+        RouterTypedErrorKind::ReadFileFailed {
+            path: markdown_path.display().to_string(),
+            message: error.to_string(),
+        }
+    })?;
+    Ok(())
+}
+
+pub fn write_comparison_reports_files(
+    reports: &[MetricReportOutputData],
+    report_dir: &Path,
+) -> Result<(), RouterTypedErrorKind> {
+    std::fs::create_dir_all(report_dir).map_err(|error| RouterTypedErrorKind::ReadFileFailed {
+        path: report_dir.display().to_string(),
+        message: error.to_string(),
+    })?;
+    let json_path = report_dir.join("routing-mode-comparison-report.json");
+    let markdown_path = report_dir.join("routing-mode-comparison-report.md");
+    let json_content = serde_json::to_string_pretty(reports).map_err(RouterTypedErrorKind::from)?;
+    std::fs::write(&json_path, json_content).map_err(|error| {
+        RouterTypedErrorKind::ReadFileFailed {
+            path: json_path.display().to_string(),
+            message: error.to_string(),
+        }
+    })?;
+    std::fs::write(&markdown_path, create_comparison_markdown_text(reports)).map_err(|error| {
         RouterTypedErrorKind::ReadFileFailed {
             path: markdown_path.display().to_string(),
             message: error.to_string(),
@@ -245,20 +296,8 @@ fn rank_candidates_for_mode(
     router_mode: RouterModeNameData,
     threshold: f64,
     max_k: usize,
-) -> Result<Vec<CandidateEvidenceCardData>, RouterTypedErrorKind> {
-    match router_mode {
-        RouterModeNameData::Lexical => {
-            rank_lexical_tools_baseline(&query.query, tools, threshold, max_k)
-        }
-        RouterModeNameData::SchemaAware => {
-            score_schema_capability_signals(&query.query, tools, threshold, max_k)
-        }
-        RouterModeNameData::Hybrid => {
-            let lexical = rank_lexical_tools_baseline(&query.query, tools, threshold, max_k)?;
-            let schema = score_schema_capability_signals(&query.query, tools, threshold, max_k)?;
-            Ok(fuse_hybrid_rankings_rrf(&lexical, &schema, max_k))
-        }
-    }
+) -> Result<Vec<catalog_router_core_engine::CandidateEvidenceCardData>, RouterTypedErrorKind> {
+    rank_tools_for_mode(&query.query, tools, router_mode, threshold, max_k)
 }
 
 fn discounted_gain_value(relevance: u32, rank: usize) -> f64 {
@@ -270,17 +309,47 @@ fn round_metric_value(value: f64) -> f64 {
 }
 
 fn create_markdown_report_text(report: &MetricReportOutputData) -> String {
+    let recall_1 = report.recall_at_k.get("1").copied().unwrap_or_default();
+    let recall_3 = report.recall_at_k.get("3").copied().unwrap_or_default();
     let recall_5 = report.recall_at_k.get("5").copied().unwrap_or_default();
+    let recall_10 = report.recall_at_k.get("10").copied().unwrap_or_default();
     format!(
-        "# Routing Metrics Report\n\n- queries: {}\n- route_required_queries: {}\n- abstention_queries: {}\n- Recall@5: {:.4}\n- MRR: {:.4}\n- nDCG@10: {:.4}\n- abstention_accuracy: {:.4}\n",
+        "# Routing Metrics Report\n\n- router_mode: {:?}\n- queries: {}\n- route_required_queries: {}\n- abstention_queries: {}\n- Recall@1: {:.4}\n- Recall@3: {:.4}\n- Recall@5: {:.4}\n- Recall@10: {:.4}\n- MRR: {:.4}\n- nDCG@10: {:.4}\n- abstention_accuracy: {:.4}\n- average_selected_candidate_count: {:.4}\n- token_reduction_estimate: {:.4}\n",
+        report.router_mode,
         report.queries,
         report.route_required_queries,
         report.abstention_queries,
+        recall_1,
+        recall_3,
         recall_5,
+        recall_10,
         report.mrr,
         report.ndcg_at_10,
-        report.abstention_accuracy
+        report.abstention_accuracy,
+        report.average_selected_candidate_count,
+        report.token_reduction_estimate
     )
+}
+
+fn create_comparison_markdown_text(reports: &[MetricReportOutputData]) -> String {
+    let mut lines = vec![
+        "# Routing Mode Comparison Report".to_string(),
+        String::new(),
+        "| mode | Recall@5 | MRR | nDCG@10 | abstention | token reduction |".to_string(),
+        "| --- | ---: | ---: | ---: | ---: | ---: |".to_string(),
+    ];
+    for report in reports {
+        lines.push(format!(
+            "| {:?} | {:.4} | {:.4} | {:.4} | {:.4} | {:.4} |",
+            report.router_mode,
+            report.recall_at_k.get("5").copied().unwrap_or_default(),
+            report.mrr,
+            report.ndcg_at_10,
+            report.abstention_accuracy,
+            report.token_reduction_estimate
+        ));
+    }
+    lines.join("\n")
 }
 
 #[cfg(test)]
@@ -344,5 +413,38 @@ mod tests {
         assert_eq!(report.recall_at_k.get("5").copied(), Some(0.6493));
         assert_eq!(report.mrr, 0.5223);
         assert_eq!(report.abstention_accuracy, 0.0);
+        assert_eq!(report.token_reduction_estimate, 0.9894);
+    }
+
+    #[test]
+    fn markdown_includes_proof_fields() {
+        let report = evaluate_routing_subset_metrics(RoutingMetricsRequestData {
+            dataset_path: Some(bundled_dataset_path().display().to_string()),
+            router_mode: RouterModeNameData::Lexical,
+            max_k: 10,
+            threshold: 2.0,
+        })
+        .expect("metrics should run");
+        let markdown = create_markdown_report_text(&report);
+
+        assert!(markdown.contains("Recall@1"));
+        assert!(markdown.contains("Recall@10"));
+        assert!(markdown.contains("token_reduction_estimate: 0.9894"));
+    }
+
+    #[test]
+    fn comparison_includes_all_modes() {
+        let reports = compare_routing_modes_metrics(RoutingMetricsRequestData {
+            dataset_path: Some(bundled_dataset_path().display().to_string()),
+            router_mode: RouterModeNameData::Lexical,
+            max_k: 10,
+            threshold: 2.0,
+        })
+        .expect("comparison should run");
+
+        assert_eq!(reports.len(), 3);
+        assert_eq!(reports[0].router_mode, RouterModeNameData::Lexical);
+        assert_eq!(reports[1].router_mode, RouterModeNameData::SchemaAware);
+        assert_eq!(reports[2].router_mode, RouterModeNameData::Hybrid);
     }
 }

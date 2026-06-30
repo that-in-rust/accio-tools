@@ -4,6 +4,7 @@ import type {
   EvaluationPackFileData,
   InvokeFunction,
   MetricReportOutputData,
+  RouteEvidencePayloadData,
   RouteQueryInputData,
   RouteToolsRequestData,
   RouteToolsResponseData,
@@ -36,6 +37,7 @@ interface RouterWorkbenchStateData {
   recentContext: string;
   tools: ToolCatalogRecordData[];
   queries: RouteQueryInputData[];
+  lastRouteRequest: RouteToolsRequestData | null;
   routeResponse: RouteToolsResponseData | null;
   metricsReport: MetricReportOutputData | null;
   exportMessage: string;
@@ -90,6 +92,7 @@ function createInitialStateData(): RouterWorkbenchStateData {
     recentContext: "",
     tools: [],
     queries: [],
+    lastRouteRequest: null,
     routeResponse: null,
     metricsReport: null,
     exportMessage: "",
@@ -271,6 +274,7 @@ function selectQuerySourceOption(
 ) {
   state.querySource = source;
   state.routeResponse = null;
+  state.lastRouteRequest = null;
   state.errorMessage = "";
   pushActivityLogEntry(
     state,
@@ -288,12 +292,15 @@ async function runCpuPreviewOnly(
     state.errorMessage = "";
     state.previewStatus = "running";
     state.routeResponse = null;
+    state.lastRouteRequest = null;
     pushActivityLogEntry(state, `Running ${routerModeLabelsData[state.routerMode]} preview.`);
     render();
+    const routeRequest = createRouteRequestData(state, false);
     state.routeResponse = await invoke<RouteToolsResponseData>(
       "run_cpu_preview_only",
-      { request: createRouteRequestData(state, false) },
+      { request: routeRequest },
     );
+    state.lastRouteRequest = { ...routeRequest, api_key: null };
     state.previewStatus = "complete";
     pushActivityLogEntry(state, "CPU preview returned top five candidates.");
   } catch (error) {
@@ -313,12 +320,15 @@ async function routeToolsForQuery(
     state.errorMessage = "";
     state.judgedStatus = "running";
     state.routeResponse = null;
+    state.lastRouteRequest = null;
     pushActivityLogEntry(state, "Running judged route.");
     render();
+    const routeRequest = createRouteRequestData(state, true);
     state.routeResponse = await invoke<RouteToolsResponseData>(
       "route_tools_for_query",
-      { request: createRouteRequestData(state, true) },
+      { request: routeRequest },
     );
+    state.lastRouteRequest = { ...routeRequest, api_key: null };
     state.judgedStatus = "complete";
     pushActivityLogEntry(state, "Judge selected top route result.");
   } catch (error) {
@@ -390,7 +400,7 @@ async function exportRouteEvidenceReport(
   try {
     state.errorMessage = "";
     const content = await invoke<string>("export_route_evidence_report", {
-      response: state.routeResponse,
+      payload: createRouteEvidencePayload(state),
     });
     downloadText("tool-router-evidence-report.md", content);
     state.exportMessage = "Downloaded route evidence report.";
@@ -432,6 +442,61 @@ function createRouteRequestData(
   };
 }
 
+function createRouteEvidencePayload(
+  state: RouterWorkbenchStateData,
+): RouteEvidencePayloadData {
+  return {
+    route_request:
+      state.lastRouteRequest ?? { ...createRouteRequestData(state, false), api_key: null },
+    route_response: state.routeResponse as RouteToolsResponseData,
+    catalog_stats: createCatalogStatsSummary(state),
+    benchmark_gold_match: createBenchmarkGoldMatch(state),
+    metrics_report: state.metricsReport,
+  };
+}
+
+function createCatalogStatsSummary(state: RouterWorkbenchStateData) {
+  const sourceValues = new Set(
+    state.tools
+      .map((tool) => tool.server_name ?? tool.server_id ?? tool.source_tool_id ?? "")
+      .filter(Boolean),
+  );
+  return {
+    tool_count: state.tools.length,
+    query_count: state.queries.length,
+    source_count: sourceValues.size,
+    schema_count: state.tools.filter((tool) => Boolean(tool.input_schema)).length,
+    route_required_count: state.queries.filter((query) => query.should_route).length,
+    abstention_count: state.queries.filter((query) => !query.should_route).length,
+  };
+}
+
+function createBenchmarkGoldMatch(state: RouterWorkbenchStateData) {
+  const query = getSelectedQueryRecordData(state);
+  if (state.querySource !== "benchmark" || !query || !state.routeResponse) {
+    return null;
+  }
+  const selectedToolId =
+    state.routeResponse.judge_decision?.selected_tool_id ??
+    state.routeResponse.candidates[0]?.tool_id ??
+    null;
+  const matchedRequiredTool = selectedToolId
+    ? query.required_tool_ids.includes(selectedToolId)
+    : !query.should_route;
+  return {
+    query_id: query.id,
+    should_route: query.should_route,
+    required_tool_ids: query.required_tool_ids,
+    selected_tool_id: selectedToolId,
+    gold_match_status: matchedRequiredTool
+      ? query.should_route
+        ? "matched_required_tool"
+        : "correct_abstain"
+      : "missed_required_tool",
+    failure_bucket: query.failure_modes.join(", ") || "none",
+  };
+}
+
 function getActiveQueryTextValue(state: RouterWorkbenchStateData): string {
   if (state.querySource === "custom") {
     return state.customQuery.trim();
@@ -466,7 +531,8 @@ function renderRouterWorkbenchView(state: RouterWorkbenchStateData): string {
         <header class="workspace-header workspace-header--router">
           <div>
             <p class="eyebrow">Tool Routing MVP</p>
-            <h1>Evaluate Inquiry</h1>
+            <h1>Tool Router Evidence Console</h1>
+            <p class="subhead">Evaluate Inquiry</p>
             <p class="hero-copy">CPU routers shortlist top five tools. A cheap judge reviews that evidence and returns one route or abstains.</p>
           </div>
           <dl class="workspace-meta">
@@ -693,7 +759,7 @@ function renderBenchmarkHealthPanel(state: RouterWorkbenchStateData): string {
               <div><strong>${formatMetricValue(report.recall_at_k["5"] ?? 0)}</strong><span>Recall@5</span></div>
               <div><strong>${formatMetricValue(report.mrr)}</strong><span>MRR</span></div>
               <div><strong>${formatMetricValue(report.ndcg_at_10)}</strong><span>nDCG@10</span></div>
-              <div><strong>${formatMetricValue(report.abstention_accuracy)}</strong><span>Abstention</span></div>
+              <div><strong>${formatMetricValue(report.token_reduction_estimate)}</strong><span>Token reduction</span></div>
             </div>
           `
           : `<p class="empty-state">Run benchmark eval to compare the selected CPU router.</p>`

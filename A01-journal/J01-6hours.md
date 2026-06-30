@@ -28,7 +28,8 @@ As a mathematical equation
         - the tool call can be finalized basis the router we build
 
 
-But due to time constraints, I will be focusing on the router and a benchmark to test the router
+But due to time constraints, I will be focusing on the router
+
 
 
 

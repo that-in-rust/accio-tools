@@ -6,7 +6,8 @@ use tool_router_tauri_core::{
     export_route_evidence_report as export_report_inner,
     route_tools_for_query as route_query_inner, run_cpu_preview_only as run_preview_inner,
     validate_judge_api_key as validate_key_inner, AppError, EvaluationPackFileData,
-    RouteToolsRequestData, RouteToolsResponseData, RouterAppReadinessData,
+    RouteEvidencePayloadData, RouteToolsRequestData, RouteToolsResponseData,
+    RouterAppReadinessData,
 };
 
 #[tauri::command]
@@ -46,9 +47,9 @@ pub async fn download_evaluation_pack_files(
 
 #[tauri::command]
 pub async fn export_route_evidence_report(
-    response: RouteToolsResponseData,
+    payload: RouteEvidencePayloadData,
 ) -> Result<String, AppError> {
-    Ok(export_report_inner(&response))
+    Ok(export_report_inner(&payload))
 }
 
 #[tauri::command]
