@@ -22,7 +22,7 @@ The MVP is not a production MCP gateway or a workflow planner. It is a correctne
 | Actors and boundaries | Reviewer/FDE uses evidence console or CLI. Rust cargo workspace owns routing, judging, and eval. OpenAI key remains session-only. |
 | Failure modes | Missing required tool in CPU top 5, wrong LLM top 1, unsafe write exposure, abstention miss, malformed catalog, malformed query file, judge API failure. |
 | Performance and reliability limits | CPU ranking p95 <= 250 ms for 1,000 tools and 50 benchmark queries on a developer laptop; eval command exits non-zero on malformed fixtures. |
-| Language/runtime constraints | Rust cargo workspace in `A02-routers-solutions/solution01`; CPU-only tests run without network or OpenAI key. |
+| Language/runtime constraints | Rust cargo workspace plus existing Tauri/Vite UI in `A02-routers-solutions/solution01`; CPU-only tests run without network or OpenAI key. |
 
 ## Workspace Shape
 
@@ -44,6 +44,33 @@ New Rust functions and package names should follow four-word naming:
 - `judge_candidate_tools_top`
 - `evaluate_routing_subset_metrics`
 - `validate_catalog_schema_input`
+
+Existing Tauri/Vite shell migration should use four-word names for new UI symbols:
+
+- `createRouterWorkbenchApp`
+- `RouterWorkbenchStateData`
+- `loadCatalogInputSource`
+- `selectRouterModeOption`
+- `routeToolsForQuery`
+- `renderCandidateEvidenceCards`
+- `exportRouteEvidenceReport`
+- `evaluateRoutingSubsetMetrics`
+
+## Existing UI Base
+
+The current `solution01` app already has a Confido/PIE-style Tauri shell:
+
+```text
+solution01/
+  ui/src/app.ts          # current PIE workbench state and render loop
+  ui/src/types.ts        # current prompt/finding/patch types
+  ui/src/app.test.ts     # current PIE journey tests
+  ui/src/styles.css      # current workbench styling
+  src-tauri/             # Tauri wrapper and command bridge
+  src/                   # current PIE Rust core
+```
+
+v0.0.1 SHALL migrate this shell instead of rebuilding the UI from scratch. The key setup card, progress strip, activity log, diagnostics export, and report download mechanics should remain; prompt-specific analysis, patching, and reverification surfaces should be removed or replaced.
 
 ## Executable Requirements
 
@@ -131,6 +158,90 @@ New Rust functions and package names should follow four-word naming:
 **AND** SHALL reject any unsupported runtime mode with a typed validation error
 **SHALL** keep the mode list identical across CLI, library, report metadata, and evidence console.
 
+### REQ-UI-001.0: Migrate product identity
+
+**WHEN** the Tauri/Vite app renders its initial shell
+**THEN** the UI SHALL identify itself as `Tool Router Evidence Console`
+**AND** SHALL not show user-facing `PIE`, `Prompt Iteration Engine`, healthcare voice-agent, prompt patch, or reverify copy
+**SHALL** keep the existing session-key, workbench, activity-log, and export affordances.
+
+### REQ-UI-002.0: Validate judge session key
+
+**WHEN** the user enters an OpenAI API key and clicks validate
+**THEN** the UI SHALL call `validate_judge_api_key`
+**AND** SHALL show validating, accepted, failed, and missing-key states without persisting the raw key
+**SHALL** disable production route execution until the key is accepted.
+
+### REQ-UI-003.0: Load catalog input
+
+**WHEN** the user opens the router workbench
+**THEN** the UI SHALL offer the default benchmark catalog and an uploaded catalog JSON path
+**AND** SHALL display catalog stats after validation: total tools, source count, schema count, and duplicate-id status
+**SHALL** show typed catalog errors without clearing the current query.
+
+### REQ-UI-004.0: Capture route query
+
+**WHEN** the user enters a freeform query or selects a benchmark query
+**THEN** the UI SHALL store query text, optional recent context, and benchmark query id when present
+**AND** SHALL keep the route button disabled until catalog, query, router mode, and judge readiness are valid
+**SHALL** preserve the query when router mode changes.
+
+### REQ-UI-005.0: Select router mode
+
+**WHEN** the user chooses a CPU router mode
+**THEN** the UI SHALL expose exactly lexical BM25, schema-aware BM25, and hybrid RRF
+**AND** SHALL send the selected mode to `route_tools_for_query`
+**SHALL** reject or ignore any unsupported mode value in UI state.
+
+### REQ-UI-006.0: Run judged route
+
+**WHEN** the user clicks `Run Judged Route`
+**THEN** the UI SHALL call `route_tools_for_query` with catalog source, query, recent context, router mode, and session judge key
+**AND** SHALL show progress stages for catalog validation, CPU ranking, judge review, and evidence compilation
+**SHALL** render a failed state if the judge API, catalog parser, or router engine returns a typed error.
+
+### REQ-UI-007.0: Render route evidence
+
+**WHEN** a route result is returned
+**THEN** the UI SHALL show judge decision, selected tool id, confidence, reason, and abstention state
+**AND** SHALL show exactly five CPU candidate evidence cards with rank, score, matched fields, risk, and `why_matched`
+**SHALL** mark CPU-only output as debug preview when no accepted judge key was used.
+
+### REQ-UI-008.0: Render benchmark health
+
+**WHEN** the active query has benchmark gold labels or the user runs subset evaluation
+**THEN** the UI SHALL show Recall@1, Recall@3, Recall@5, Recall@10, MRR, abstention accuracy, token reduction estimate, and failure bucket when available
+**AND** SHALL compare lexical BM25, schema-aware BM25, and hybrid RRF in an advanced/developer panel
+**SHALL** keep the primary user journey focused on one selected route result.
+
+### REQ-UI-009.0: Export route evidence
+
+**WHEN** the user clicks export after a route or eval run
+**THEN** the UI SHALL call `export_route_evidence_report`
+**AND** SHALL download Markdown or JSON containing query, catalog stats, router mode, CPU top 5, judge top 1, confidence, reasons, metrics, and failure bucket
+**SHALL** redact API keys and omit raw secret-bearing environment values from exported content.
+
+### REQ-UI-010.0: Remove prompt patch flows
+
+**WHEN** the migrated router UI is built or tested
+**THEN** the UI SHALL not expose `Apply Recommended Patch`, `Updated Prompt`, `Re-verify Updated Prompt`, prompt findings, finding groups, selected finding ids, or prompt version downloads
+**AND** SHALL remove or replace invoke paths for `analyze_prompt`, `apply_selected_fixes`, `reverify_prompt`, and `verify_and_export_update`
+**SHALL** fail UI tests if prompt-patch controls reappear in user-facing markup.
+
+### REQ-UI-011.0: Preserve activity diagnostics
+
+**WHEN** readiness, catalog load, route execution, export, or failures occur
+**THEN** the UI SHALL append concise activity log entries in chronological order
+**AND** SHALL keep diagnostic log export available
+**SHALL** include command names without raw API keys or full judge payload secrets.
+
+### REQ-UI-012.0: Maintain operational layout
+
+**WHEN** the UI is rendered at 390 px mobile width and 1200 px desktop width
+**THEN** controls, cards, tables, progress indicators, and activity log text SHALL not overlap or overflow their containers
+**AND** SHALL keep repeated candidate cards at stable heights with responsive wrapping
+**SHALL** use a restrained operational palette without decorative radial backgrounds or marketing hero layout.
+
 ## Test Matrix
 
 | req_id | test_id | type | assertion | target |
@@ -156,6 +267,18 @@ New Rust functions and package names should follow four-word naming:
 | REQ-MVP-010.0 | TEST-SEC-001 | unit | exported report redacts API key shaped values | candidate-judge-openai-adapter |
 | REQ-MVP-011.0 | TEST-REP-001 | integration | export contains CPU top 5, judge top 1, metrics, and failure bucket | router-cli-command-surface |
 | REQ-MVP-012.0 | TEST-MODE-001 | unit | runtime mode enum contains exactly lexical, schema-aware, hybrid | catalog-router-core-engine |
+| REQ-UI-001.0 | TEST-UI-001 | component | shell renders Tool Router Evidence Console and no PIE/prompt-patch copy | ui/src/app.test.ts |
+| REQ-UI-002.0 | TEST-UI-002 | component | key validation calls `validate_judge_api_key` and gates route execution | ui/src/app.test.ts |
+| REQ-UI-003.0 | TEST-UI-003 | component | catalog upload/default selection shows stats and typed validation errors | ui/src/app.test.ts |
+| REQ-UI-004.0 | TEST-UI-004 | component | query and benchmark selection enable route only after required inputs are ready | ui/src/app.test.ts |
+| REQ-UI-005.0 | TEST-UI-005 | component | router mode selector exposes exactly lexical, schema-aware, hybrid | ui/src/app.test.ts |
+| REQ-UI-006.0 | TEST-UI-006 | integration | Run Judged Route calls `route_tools_for_query` and shows progress stages | ui/src/app.test.ts |
+| REQ-UI-007.0 | TEST-UI-007 | component | result renders judge decision and exactly five evidence cards | ui/src/app.test.ts |
+| REQ-UI-008.0 | TEST-UI-008 | component | benchmark health shows Recall@K, MRR, abstention, token reduction, failure bucket | ui/src/app.test.ts |
+| REQ-UI-009.0 | TEST-UI-009 | integration | export calls `export_route_evidence_report` and downloads redacted report | ui/src/app.test.ts |
+| REQ-UI-010.0 | TEST-UI-010 | component | patch/reverify controls and invoke paths are absent from router UI | ui/src/app.test.ts |
+| REQ-UI-011.0 | TEST-UI-011 | component | activity log records readiness, catalog, route, export, and failure events | ui/src/app.test.ts |
+| REQ-UI-012.0 | TEST-UI-012 | visual | mobile and desktop layout snapshots have no overflow or overlap | Playwright/visual check |
 
 ## TDD Plan
 
@@ -163,12 +286,15 @@ New Rust functions and package names should follow four-word naming:
 
 - Create cargo workspace and crate shells.
 - Add failing tests for catalog validation, lexical ranking, schema scoring, hybrid fusion, judge payload shape, eval metrics, and runtime mode list.
+- Replace PIE UI test stubs with router workbench tests for identity, key readiness, catalog input, query input, mode selection, route result, export, and removed patch flows.
 - Add fixture copies or relative fixture loading for `A00-raw-research/benchmarks/tool-routing-subset`.
 
 ### 2. RED
 
 - Run `cargo test --workspace`.
+- Run `npm --prefix ui test`.
 - Expected failures: missing catalog types, missing router mode enum, missing scorer functions, missing judge trait, missing eval runner.
+- Expected UI failures: old PIE copy still visible, prompt-finding types still referenced, route commands missing, candidate evidence cards missing.
 - Record the first failure per requirement ID before implementation.
 
 ### 3. GREEN
@@ -179,6 +305,9 @@ New Rust functions and package names should follow four-word naming:
 - Implement `fuse_hybrid_rankings_rrf` using lexical and schema ranks first; leave vector disabled unless configured.
 - Implement mock judge and payload-shape enforcement before real OpenAI adapter.
 - Implement eval metrics and report writing.
+- Implement `createRouterWorkbenchApp`, `RouterWorkbenchStateData`, `loadCatalogInputSource`, `selectRouterModeOption`, `routeToolsForQuery`, `renderCandidateEvidenceCards`, `exportRouteEvidenceReport`, and `evaluateRoutingSubsetMetrics` in the Tauri/Vite shell.
+- Replace prompt/finding/patch TypeScript types with catalog, query, candidate, judge, metric, and export types.
+- Replace Tauri commands with `validate_judge_api_key`, `route_tools_for_query`, `evaluate_routing_subset_metrics`, `export_route_evidence_report`, and `export_diagnostic_logs_text`.
 
 ### 4. REFACTOR
 
@@ -186,10 +315,13 @@ New Rust functions and package names should follow four-word naming:
 - Keep four-word naming for every new public implementation symbol.
 - Split evidence-card construction from ranking math.
 - Move benchmark fixture paths into CLI config.
+- Split UI rendering into four-word helpers for readiness, catalog, query, candidate cards, benchmark health, activity log, and export status.
+- Remove prompt patch/reverify modules after equivalent router tests are green.
 
 ### 5. VERIFY
 
 - Run full workspace tests and quality gates.
+- Run UI unit tests and responsive layout checks.
 - Run eval in CPU-only mode and compare lexical baseline against current Python baseline metrics.
 - Run judge tests with mock judge; run real OpenAI smoke test only when key is explicitly supplied.
 
@@ -198,14 +330,19 @@ New Rust functions and package names should follow four-word naming:
 - `cargo fmt --check`
 - `cargo clippy --workspace --all-targets -- -D warnings`
 - `cargo test --workspace`
+- `npm --prefix ui test`
+- `npm --prefix ui run build`
 - `cargo run -p router-cli-command-surface -- evaluate-routing-subset-metrics --dataset ../../A00-raw-research/benchmarks/tool-routing-subset --mode lexical`
 - `cargo run -p router-cli-command-surface -- evaluate-routing-subset-metrics --dataset ../../A00-raw-research/benchmarks/tool-routing-subset --mode schema-aware`
 - `cargo run -p router-cli-command-surface -- evaluate-routing-subset-metrics --dataset ../../A00-raw-research/benchmarks/tool-routing-subset --mode hybrid`
 - Every `REQ-MVP-*` ID has at least one linked test.
+- Every `REQ-UI-*` ID has at least one linked test.
 - No `TODO`, `STUB`, or `FIXME` introduced in implementation commits.
 - No performance claim is accepted without an eval command or test.
 - Runtime mode list contains only lexical BM25, schema-aware BM25, and hybrid RRF.
 - Judge payload snapshot proves the full catalog is not sent to the LLM judge.
+- User-facing UI copy contains no `PIE`, `Prompt Iteration Engine`, prompt patch, updated prompt, or reverify controls.
+- Responsive screenshots at 390 px and 1200 px show no text overlap, control overflow, or incoherent table/card wrapping.
 
 ## Resolved Defaults For Build
 
@@ -218,6 +355,15 @@ New Rust functions and package names should follow four-word naming:
 | MVP success gate | Build passes when all modes emit metrics; product claim requires schema-aware Recall@5 to beat lexical or a failure bucket report. | Eval report compares lexical, schema-aware, and hybrid modes. |
 | Lexical parity gate | Rust lexical Recall@5 within `0.02` of Python `0.6493`; MRR within `0.03` of Python `0.5223`. | CPU eval compares against checked-in baseline numbers. |
 | UI boundary | Rust owns engine, CLI, judge adapter, and eval output; UI consumes CLI/library later. | `route-tools-for-query` and `evaluate-routing-subset-metrics` are stable enough for the evidence console. |
+| UI migration base | Keep the Tauri/Vite shell but replace PIE prompt surfaces with router workbench surfaces. | UI tests prove no prompt patch/reverify controls remain. |
+
+## Open Questions
+
+| question | current stance | when to resolve |
+| --- | --- | --- |
+| Should the advanced benchmark comparison panel be always visible? | Keep it collapsed by default so the primary journey focuses on one judged route. | During UI implementation after first screenshot pass. |
+| Should catalog upload accept JSON arrays and wrapper objects? | Support both if validation can normalize them into `ToolCatalogRecordData`. | During catalog parser implementation. |
+| Should real OpenAI judge smoke tests run in CI? | No; keep mock judge in CI and make real smoke tests explicit local commands. | Before final demo packaging. |
 
 ## Rubber Duck Debugging
 
