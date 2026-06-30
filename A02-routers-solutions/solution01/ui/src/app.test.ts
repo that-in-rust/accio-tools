@@ -32,6 +32,8 @@ describe("router workbench journey", () => {
     expect(readScreenTextContent()).toContain("Search benchmark queries");
     expect(getButtonByLabelText("Run CPU Preview").disabled).toBe(false);
     expect(getButtonByLabelText("Run Judged Route").disabled).toBe(true);
+    expect(getButtonByLabelText("Export Judged Route Evidence").disabled).toBe(true);
+    expect(getButtonByLabelText("Export Preview Route Evidence").disabled).toBe(true);
   });
 
   it("filters bundled benchmark queries before routing", async () => {
@@ -76,6 +78,8 @@ describe("router workbench journey", () => {
     expect(readScreenTextContent()).toContain("run_cpu_preview_only");
     expect(document.querySelectorAll('[data-testid="candidate-card"]')).toHaveLength(5);
     expect(getProgressStatusByLabel("Judge review")).toBe("skipped");
+    expect(getButtonByLabelText("Export Judged Route Evidence").disabled).toBe(true);
+    expect(getButtonByLabelText("Export Preview Route Evidence").disabled).toBe(false);
   });
 
   it("validates judge key and runs judged route", async () => {
@@ -109,6 +113,7 @@ describe("router workbench journey", () => {
     expect(getProgressStatusByLabel("Judge review")).toBe("complete");
     expect(getProgressStatusByLabel("Evidence compilation")).toBe("complete");
     expect(document.querySelectorAll('[data-testid="candidate-card"]')).toHaveLength(5);
+    expect(getButtonByLabelText("Export Judged Route Evidence").disabled).toBe(false);
   });
 
   it("routes a custom query instead of benchmark text", async () => {
@@ -212,7 +217,7 @@ describe("router workbench journey", () => {
     await flushAsyncViewUpdates();
     getButtonByLabelText("Run CPU Preview").click();
     await flushAsyncViewUpdates();
-    getButtonByLabelText("Export Evidence").click();
+    getButtonByLabelText("Export Preview Route Evidence").click();
     await flushAsyncViewUpdates();
     getButtonByLabelText("Export Logs").click();
     await flushAsyncViewUpdates();
@@ -226,6 +231,8 @@ describe("router workbench journey", () => {
     expect(readScreenTextContent()).toContain("Abstention");
     expect(readScreenTextContent()).toContain("Judged route");
     expect(readScreenTextContent()).toContain("Failure bucket");
+    expect(readScreenTextContent()).toContain("Failure buckets");
+    expect(readScreenTextContent()).toContain("wrong_llm_top1");
     expect(readScreenTextContent()).toContain("export_route_evidence_report");
     expect(invoke).toHaveBeenCalledWith("evaluate_routing_subset_metrics", {
       request: {
@@ -441,6 +448,11 @@ function createMetricsReportData(): MetricReportOutputData {
     ndcg_at_10: 0.5553,
     abstention_accuracy: 0,
     judged_route_accuracy: 0.5,
+    failure_bucket_counts: {
+      none: 19,
+      wrong_llm_top1: 27,
+      abstention_miss: 4,
+    },
     average_selected_candidate_count: 5,
     token_reduction_estimate: 0.9894,
     router_mode: "lexical",

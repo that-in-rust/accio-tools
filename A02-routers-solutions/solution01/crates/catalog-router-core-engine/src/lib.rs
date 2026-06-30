@@ -102,9 +102,9 @@ impl std::str::FromStr for RouterModeNameData {
 
     fn from_str(value: &str) -> Result<Self, Self::Err> {
         match value {
-            "lexical" | "lexical-bm25" => Ok(Self::Lexical),
-            "schema-aware" | "schema_aware" | "schema-aware-bm25" => Ok(Self::SchemaAware),
-            "hybrid" | "hybrid-rrf" => Ok(Self::Hybrid),
+            "lexical" => Ok(Self::Lexical),
+            "schema-aware" | "schema_aware" => Ok(Self::SchemaAware),
+            "hybrid" => Ok(Self::Hybrid),
             other => Err(RouterTypedErrorKind::UnsupportedRouterMode {
                 mode: other.to_string(),
             }),
@@ -137,11 +137,27 @@ pub fn validate_catalog_schema_input(
                 message: format!("tool {} has empty description", tool.id),
             });
         }
+        validate_optional_metadata_text(&tool.source_tool_id, "source_tool_id", &tool.id)?;
+        validate_optional_metadata_text(&tool.server_id, "server_id", &tool.id)?;
+        validate_optional_metadata_text(&tool.server_name, "server_name", &tool.id)?;
         if !tool.input_schema.is_object() {
             return Err(RouterTypedErrorKind::CatalogValidationFailed {
                 message: format!("tool {} has non-object input schema", tool.id),
             });
         }
+    }
+    Ok(())
+}
+
+fn validate_optional_metadata_text(
+    value: &Option<String>,
+    field_name: &str,
+    tool_id: &str,
+) -> Result<(), RouterTypedErrorKind> {
+    if value.as_deref().map(str::trim).is_some_and(str::is_empty) {
+        return Err(RouterTypedErrorKind::CatalogValidationFailed {
+            message: format!("tool {tool_id} has empty {field_name}"),
+        });
     }
     Ok(())
 }
@@ -607,6 +623,38 @@ mod tests {
             create_tool_record_value("tool.search", "search again", "search docs"),
         ];
         assert!(validate_catalog_schema_input(&tools).is_err());
+    }
+
+    #[test]
+    fn catalog_metadata_rejects_empty_present_values() {
+        let mut tool = create_tool_record_value("tool.search", "search", "search docs");
+        tool.source_tool_id = Some(" ".to_string());
+        let error = validate_catalog_schema_input(&[tool])
+            .expect_err("present source metadata must not be blank");
+
+        assert!(error.to_string().contains("empty source_tool_id"));
+    }
+
+    #[test]
+    fn runtime_modes_reject_doc_label_aliases() {
+        assert_eq!(
+            "lexical".parse::<RouterModeNameData>().expect("lexical"),
+            RouterModeNameData::Lexical
+        );
+        assert_eq!(
+            "schema-aware"
+                .parse::<RouterModeNameData>()
+                .expect("schema-aware"),
+            RouterModeNameData::SchemaAware
+        );
+        assert_eq!(
+            "hybrid".parse::<RouterModeNameData>().expect("hybrid"),
+            RouterModeNameData::Hybrid
+        );
+
+        for alias in ["lexical-bm25", "schema-aware-bm25", "hybrid-rrf"] {
+            assert!(alias.parse::<RouterModeNameData>().is_err());
+        }
     }
 
     #[test]

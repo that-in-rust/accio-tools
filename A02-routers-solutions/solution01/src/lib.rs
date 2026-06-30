@@ -343,6 +343,10 @@ pub fn build_route_evidence_report(payload: &RouteEvidencePayloadData) -> String
             metrics.judged_route_accuracy
         ));
         lines.push(format!(
+            "failure_bucket_counts: {}",
+            create_failure_bucket_counts_text(&metrics.failure_bucket_counts)
+        ));
+        lines.push(format!(
             "token_reduction_estimate: {:.4}",
             metrics.token_reduction_estimate
         ));
@@ -351,6 +355,19 @@ pub fn build_route_evidence_report(payload: &RouteEvidencePayloadData) -> String
     }
 
     lines.join("\n")
+}
+
+fn create_failure_bucket_counts_text(
+    failure_bucket_counts: &std::collections::BTreeMap<String, usize>,
+) -> String {
+    if failure_bucket_counts.is_empty() {
+        return "none:0".to_string();
+    }
+    failure_bucket_counts
+        .iter()
+        .map(|(bucket, count)| format!("{bucket}:{count}"))
+        .collect::<Vec<_>>()
+        .join(", ")
 }
 
 pub fn export_diagnostic_logs_text() -> String {
@@ -613,6 +630,7 @@ mod tests {
         assert!(report.contains("gold_match_status: matched_required_tool"));
         assert!(report.contains("failure_bucket: none"));
         assert!(report.contains("judged_route_accuracy: 0.5000"));
+        assert!(report.contains("failure_bucket_counts: none:1, wrong_llm_top1:2"));
         assert!(report.contains("token_reduction_estimate: 0.9894"));
         assert!(!report.contains("sk-should-not-leak"));
     }
@@ -730,6 +748,10 @@ mod tests {
             ndcg_at_10: 0.5553,
             abstention_accuracy: 0.0,
             judged_route_accuracy: 0.5,
+            failure_bucket_counts: BTreeMap::from([
+                ("none".to_string(), 1),
+                ("wrong_llm_top1".to_string(), 2),
+            ]),
             average_selected_candidate_count: 10.0,
             token_reduction_estimate: 0.9894,
             router_mode: RouterModeNameData::Lexical,

@@ -397,6 +397,7 @@ v0.0.1 SHALL migrate this shell instead of rebuilding the UI from scratch. The k
 - `cargo test --workspace`
 - `npm --prefix ui test`
 - `npm --prefix ui run build`
+- `npm --prefix ui run test:responsive-layout-viewports`
 - `cargo run -p router-cli-command-surface -- evaluate-routing-subset-metrics --dataset ../../A00-raw-research/benchmarks/tool-routing-subset --mode lexical`
 - `cargo run -p router-cli-command-surface -- evaluate-routing-subset-metrics --dataset ../../A00-raw-research/benchmarks/tool-routing-subset --mode schema-aware`
 - `cargo run -p router-cli-command-surface -- evaluate-routing-subset-metrics --dataset ../../A00-raw-research/benchmarks/tool-routing-subset --mode hybrid`

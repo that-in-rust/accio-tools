@@ -7,6 +7,7 @@
     "dev": "vite --host 127.0.0.1 --port 1420",
     "build": "tsc && vite build",
     "test": "vitest run",
+    "test:responsive-layout-viewports": "node scripts/verify-responsive-layout-viewports.mjs",
     "tauri:dev": "cd ../src-tauri && env LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 LC_CTYPE=en_US.UTF-8 cargo tauri dev",
     "tauri:build": "cd ../src-tauri && env LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 LC_CTYPE=en_US.UTF-8 cargo tauri build --bundles app,dmg --no-sign --ci"
   },
@@ -16,6 +17,7 @@
   "devDependencies": {
     "@vitest/ui": "^3.2.4",
     "jsdom": "^26.1.0",
+    "playwright": "^1.61.0",
     "typescript": "^5.8.3",
     "vite": "^6.3.5",
     "vitest": "^3.2.4"

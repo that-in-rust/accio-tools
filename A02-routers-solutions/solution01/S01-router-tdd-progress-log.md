@@ -2,7 +2,7 @@
 
 - Task: Implement router MVP executable specs
 - Created: 2026-06-30 19:10:59Z
-- Updated: 2026-06-30 21:47:55Z
+- Updated: 2026-06-30 22:23:37Z
 - Current Phase: Green
 - Status: active
 
@@ -624,6 +624,119 @@ Close UI query search, progress stages, and five-card evidence assertions
 #### Performance/Metrics:
 - cargo fmt --all --check: passing
 - cargo test --workspace: passing - 29 Rust tests plus doctests
+- cargo clippy --workspace --all-targets -- -D warnings: passing
+- npm --prefix ui test: passing - 9 UI tests
+- npm --prefix ui run build: passing
+- npm --prefix ui run tauri:build: passing - app and dmg bundles produced
+
+### Session: 2026-06-30 22:13:09Z
+
+#### Current Phase: Green
+
+#### Tests Written:
+- test:responsive-layout-viewports: red then green - Playwright checks 390 px mobile and 1200 px desktop screenshots for body overflow, element overflow, overlap, and five candidate cards
+
+#### Implementation Progress:
+- ui/scripts/verify-responsive-layout-viewports.mjs: added Vite-backed Playwright visual verifier with mocked Tauri command responses and screenshot/report artifacts in target/layout-check
+- ui/package.json and ui/package-lock.json: added Playwright and the test:responsive-layout-viewports script
+- ui/src/styles.css: wrapped metric-grid strong values so long benchmark statuses such as unjudged_cpu_preview stay inside tiles
+- S01-mvp-router-executable-specs.md: added the new responsive layout command to the Quality Gates list
+
+#### Current Focus:
+Prove REQ-UI-012 with executable visual evidence instead of relying on jsdom or screenshot memory
+
+#### Next Steps:
+- Continue final requirement-by-requirement audit against S01-mvp-router-executable-specs.md.
+- Decide whether remaining evidence is strong enough to mark the goal complete or continue tightening.
+- Commit and push only when the user asks for a save point.
+
+#### Context Notes:
+- First visual run failed on desktop because unjudged_cpu_preview overflowed benchmark gold metric tiles.
+- After adding overflow-wrap to .metric-grid strong, the visual command passed with overflow=0 and overlaps=0 at both 390 px and 1200 px.
+- Fresh screenshots and report are written to target/layout-check/mobile-390.png, target/layout-check/desktop-1200.png, and target/layout-check/responsive-layout-report.json.
+- codebase-memory scan /tmp/codex-code-intel/codebase-memory/accio-tools-20260701-034309 found runResponsiveLayoutCheck, captureViewportProofs, auditViewportLayoutState, and waitForServerReady.
+- CodeGraphContext DB /tmp/codex-code-intel/codegraphcontext/solution01-layout-20260701-034309 found runResponsiveLayoutCheck at ui/scripts/verify-responsive-layout-viewports.mjs:21 and auditViewportLayoutState at line 133.
+
+#### Performance/Metrics:
+- cargo fmt --all --check: passing
+- cargo test --workspace: passing - 36 Rust tests plus doctests
+- cargo clippy --workspace --all-targets -- -D warnings: passing
+- npm --prefix ui test: passing - 9 UI tests
+- npm --prefix ui run test:responsive-layout-viewports: passing - mobile 390 and desktop 1200 screenshots, overflow=0, overlaps=0
+- npm --prefix ui run build: passing
+- npm --prefix ui run tauri:build: passing - app and dmg bundles produced
+
+### Session: 2026-06-30 22:23:37Z
+
+#### Current Phase: Green
+
+#### Tests Written:
+- test_metrics_report_shape: red then green - aggregate metrics now include failure_bucket_counts totaling 50 benchmark queries
+- markdown_includes_proof_fields: red then green - Markdown metrics report now prints the failure_bucket_counts section
+- metrics_report_counts_mock_judged_outcomes: red then green - mock judged scoring records none and abstention_miss buckets
+- runs metrics and downloads evidence artifacts: red then green - UI benchmark health now shows Failure buckets and wrong_llm_top1 summary
+
+#### Implementation Progress:
+- crates/benchmark-eval-metrics-runner/src/lib.rs: MetricReportOutputData now carries failure_bucket_counts, eval increments bucket counts from score_benchmark_route_outcome, and JSON/Markdown comparison reports include top failure bucket evidence
+- src/lib.rs: route evidence report exports serialized failure_bucket_counts alongside judged_route_accuracy
+- ui/src/types.ts and ui/src/app.ts: typed metrics and benchmark health panel now render aggregate failure-bucket summaries via createFailureBucketSummary
+- ui/scripts/verify-responsive-layout-viewports.mjs and ui/src/app.test.ts: fixtures include failure_bucket_counts so visual and component tests cover the new field
+
+#### Current Focus:
+Close the MVP success-gate gap where schema-aware Recall@5 does not beat lexical and therefore needs a failure-bucket report
+
+#### Next Steps:
+- Run one final source invariant pass and summarize completion evidence.
+- Decide whether all spec requirements are now proven enough to mark the active goal complete.
+- Commit and push only when the user asks for a save point.
+
+#### Context Notes:
+- CLI eval outputs now show lexical failure_bucket_counts: abstention_miss 4, missing_required_tool 14, none 19, wrong_llm_top1 13.
+- Schema-aware and hybrid both emit missing_required_tool 15 as the top failure bucket, giving a concrete tuning story instead of overstating the product claim.
+- codebase-memory scan /tmp/codex-code-intel/codebase-memory/accio-tools-20260701-035337 found createFailureBucketSummary, create_failure_bucket_counts_text, create_failure_bucket_markdown_lines, and create_top_failure_bucket_text.
+- CodeGraphContext DB /tmp/codex-code-intel/codegraphcontext/solution01-buckets-20260701-035337 found create_failure_bucket_markdown_lines at benchmark-eval-metrics-runner/src/lib.rs:497 and createFailureBucketSummary at ui/src/app.ts:795.
+
+#### Performance/Metrics:
+- cargo fmt --all --check: passing
+- cargo test --workspace: passing - 36 Rust tests plus doctests
+- cargo clippy --workspace --all-targets -- -D warnings: passing
+- npm --prefix ui test: passing - 9 UI tests
+- npm --prefix ui run test:responsive-layout-viewports: passing - mobile 390 and desktop 1200 screenshots, overflow=0, overlaps=0
+- npm --prefix ui run build: passing
+- npm --prefix ui run tauri:build: passing - app and dmg bundles produced
+- CLI eval lexical/schema-aware/hybrid: passing - all three modes emit failure_bucket_counts
+- CLI comparison report: passing - writes JSON and Markdown with top failure bucket column
+
+### Session: 2026-06-30 22:00:23Z
+
+#### Current Phase: Green
+
+#### Tests Written:
+- catalog_metadata_rejects_empty_present_values: red then green - optional source/server metadata now fails validation when present but blank
+- runtime_modes_reject_doc_label_aliases: red then green - runtime mode parsing rejects display-label aliases such as lexical-bm25 and hybrid-rrf
+- router workbench export gating assertions: red then green - judged export stays disabled for CPU preview while preview evidence remains downloadable
+
+#### Implementation Progress:
+- crates/catalog-router-core-engine/src/lib.rs: added validate_optional_metadata_text and tightened RouterModeNameData parsing to the supported runtime slugs
+- ui/src/app.ts: added canExportJudgedRoute and canExportPreviewEvidence, then split export buttons into judged route evidence and preview route evidence
+- ui/src/app.test.ts: added assertions for no-key production export gating and preview evidence download behavior
+
+#### Current Focus:
+Close strict audit gaps around metadata validation, exact runtime modes, and CPU-preview export semantics
+
+#### Next Steps:
+- Continue requirement-by-requirement audit against S01-mvp-router-executable-specs.md.
+- Resolve the remaining visual/layout proof gap for REQ-UI-012.
+- Commit and push this patch when the user asks for a save point.
+
+#### Context Notes:
+- CodeGraphContext focused DB /tmp/codex-code-intel/codegraphcontext/solution01-focused-20260701-032734 found canExportJudgedRoute at ui/src/app.ts:803 and validate_optional_metadata_text at catalog-router-core-engine/src/lib.rs:152.
+- codebase-memory scan /tmp/codex-code-intel/codebase-memory/accio-tools-20260701-033023 found canExportJudgedRoute, canExportPreviewEvidence, and validate_optional_metadata_text after the patch.
+- The old full-root CodeGraphContext wrapper was stopped because it was indexing too broadly; a focused solution01 index completed successfully.
+
+#### Performance/Metrics:
+- cargo fmt --all --check: passing
+- cargo test --workspace: passing - 36 Rust tests plus doctests
 - cargo clippy --workspace --all-targets -- -D warnings: passing
 - npm --prefix ui test: passing - 9 UI tests
 - npm --prefix ui run build: passing

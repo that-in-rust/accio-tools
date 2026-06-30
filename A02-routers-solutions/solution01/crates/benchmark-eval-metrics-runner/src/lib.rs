@@ -36,6 +36,7 @@ pub struct MetricReportOutputData {
     pub ndcg_at_10: f64,
     pub abstention_accuracy: f64,
     pub judged_route_accuracy: f64,
+    pub failure_bucket_counts: BTreeMap<String, usize>,
     pub average_selected_candidate_count: f64,
     pub token_reduction_estimate: f64,
     pub router_mode: RouterModeNameData,
@@ -110,6 +111,7 @@ pub fn evaluate_routing_subset_metrics(
     let mut ndcg_count = 0usize;
     let mut candidate_count_sum = 0usize;
     let mut judged_pass_count = 0usize;
+    let mut failure_bucket_counts = BTreeMap::new();
 
     for query in &pack.queries {
         candidate_count_sum += predictions.get(&query.id).map(Vec::len).unwrap_or_default();
@@ -125,6 +127,9 @@ pub fn evaluate_routing_subset_metrics(
         if outcome.judged_passed {
             judged_pass_count += 1;
         }
+        *failure_bucket_counts
+            .entry(outcome.failure_bucket)
+            .or_insert(0) += 1;
     }
 
     for query in &routed {
@@ -213,6 +218,7 @@ pub fn evaluate_routing_subset_metrics(
         judged_route_accuracy: round_metric_value(
             judged_pass_count as f64 / pack.queries.len().max(1) as f64,
         ),
+        failure_bucket_counts,
         average_selected_candidate_count,
         token_reduction_estimate,
         router_mode: request.router_mode,
@@ -467,8 +473,9 @@ fn create_markdown_report_text(report: &MetricReportOutputData) -> String {
     let recall_3 = report.recall_at_k.get("3").copied().unwrap_or_default();
     let recall_5 = report.recall_at_k.get("5").copied().unwrap_or_default();
     let recall_10 = report.recall_at_k.get("10").copied().unwrap_or_default();
+    let failure_bucket_lines = create_failure_bucket_markdown_lines(&report.failure_bucket_counts);
     format!(
-        "# Routing Metrics Report\n\n- router_mode: {:?}\n- queries: {}\n- route_required_queries: {}\n- abstention_queries: {}\n- Recall@1: {:.4}\n- Recall@3: {:.4}\n- Recall@5: {:.4}\n- Recall@10: {:.4}\n- MRR: {:.4}\n- nDCG@10: {:.4}\n- abstention_accuracy: {:.4}\n- judged_route_accuracy: {:.4}\n- average_selected_candidate_count: {:.4}\n- token_reduction_estimate: {:.4}\n",
+        "# Routing Metrics Report\n\n- router_mode: {:?}\n- queries: {}\n- route_required_queries: {}\n- abstention_queries: {}\n- Recall@1: {:.4}\n- Recall@3: {:.4}\n- Recall@5: {:.4}\n- Recall@10: {:.4}\n- MRR: {:.4}\n- nDCG@10: {:.4}\n- abstention_accuracy: {:.4}\n- judged_route_accuracy: {:.4}\n- average_selected_candidate_count: {:.4}\n- token_reduction_estimate: {:.4}\n\n## failure_bucket_counts\n{}",
         report.router_mode,
         report.queries,
         report.route_required_queries,
@@ -482,31 +489,54 @@ fn create_markdown_report_text(report: &MetricReportOutputData) -> String {
         report.abstention_accuracy,
         report.judged_route_accuracy,
         report.average_selected_candidate_count,
-        report.token_reduction_estimate
+        report.token_reduction_estimate,
+        failure_bucket_lines
     )
+}
+
+fn create_failure_bucket_markdown_lines(failure_bucket_counts: &BTreeMap<String, usize>) -> String {
+    if failure_bucket_counts.is_empty() {
+        return "- none: 0\n".to_string();
+    }
+    failure_bucket_counts
+        .iter()
+        .map(|(bucket, count)| format!("- {bucket}: {count}"))
+        .collect::<Vec<_>>()
+        .join("\n")
+        + "\n"
 }
 
 fn create_comparison_markdown_text(reports: &[MetricReportOutputData]) -> String {
     let mut lines = vec![
         "# Routing Mode Comparison Report".to_string(),
         String::new(),
-        "| mode | Recall@5 | MRR | nDCG@10 | abstention | judged route | token reduction |"
+        "| mode | Recall@5 | MRR | nDCG@10 | abstention | judged route | top failure bucket | token reduction |"
             .to_string(),
-        "| --- | ---: | ---: | ---: | ---: | ---: | ---: |".to_string(),
+        "| --- | ---: | ---: | ---: | ---: | ---: | --- | ---: |".to_string(),
     ];
     for report in reports {
         lines.push(format!(
-            "| {:?} | {:.4} | {:.4} | {:.4} | {:.4} | {:.4} | {:.4} |",
+            "| {:?} | {:.4} | {:.4} | {:.4} | {:.4} | {:.4} | {} | {:.4} |",
             report.router_mode,
             report.recall_at_k.get("5").copied().unwrap_or_default(),
             report.mrr,
             report.ndcg_at_10,
             report.abstention_accuracy,
             report.judged_route_accuracy,
+            create_top_failure_bucket_text(&report.failure_bucket_counts),
             report.token_reduction_estimate
         ));
     }
     lines.join("\n")
+}
+
+fn create_top_failure_bucket_text(failure_bucket_counts: &BTreeMap<String, usize>) -> String {
+    failure_bucket_counts
+        .iter()
+        .filter(|(bucket, _)| bucket.as_str() != "none")
+        .max_by(|left, right| left.1.cmp(right.1).then_with(|| right.0.cmp(left.0)))
+        .map(|(bucket, count)| format!("{bucket}: {count}"))
+        .unwrap_or_else(|| "none: 0".to_string())
 }
 
 #[cfg(test)]
@@ -572,6 +602,9 @@ mod tests {
         assert_eq!(report.recall_at_k.get("5").copied(), Some(0.6493));
         assert_eq!(report.mrr, 0.5223);
         assert_eq!(report.abstention_accuracy, 0.0);
+        assert_eq!(report.failure_bucket_counts.values().sum::<usize>(), 50);
+        assert!(report.failure_bucket_counts.contains_key("wrong_llm_top1"));
+        assert!(report.failure_bucket_counts.contains_key("abstention_miss"));
         assert_eq!(report.token_reduction_estimate, 0.9894);
     }
 
@@ -590,6 +623,8 @@ mod tests {
 
         assert!(markdown.contains("Recall@1"));
         assert!(markdown.contains("Recall@10"));
+        assert!(markdown.contains("failure_bucket_counts"));
+        assert!(markdown.contains("wrong_llm_top1"));
         assert!(markdown.contains("token_reduction_estimate: 0.9894"));
     }
 
@@ -701,6 +736,11 @@ mod tests {
         assert_eq!(report.recall_at_k.get("5").copied(), Some(1.0));
         assert_eq!(report.judged_route_accuracy, 0.5);
         assert_eq!(report.abstention_accuracy, 0.0);
+        assert_eq!(report.failure_bucket_counts.get("none"), Some(&1));
+        assert_eq!(
+            report.failure_bucket_counts.get("abstention_miss"),
+            Some(&1)
+        );
     }
 
     #[test]

@@ -302,7 +302,14 @@ function bindWorkbenchEventHandlers(
     },
   );
 
-  queryElementById<HTMLButtonElement>(root, "export-evidence-button")?.addEventListener(
+  queryElementById<HTMLButtonElement>(root, "export-judged-evidence-button")?.addEventListener(
+    "click",
+    () => {
+      void exportRouteEvidenceReport(state, invoke, downloadText, render);
+    },
+  );
+
+  queryElementById<HTMLButtonElement>(root, "export-preview-evidence-button")?.addEventListener(
     "click",
     () => {
       void exportRouteEvidenceReport(state, invoke, downloadText, render);
@@ -785,12 +792,37 @@ function createRouteProgressStagesList(
   ];
 }
 
+function createFailureBucketSummary(
+  failureBucketCounts: Record<string, number>,
+): string {
+  const entries = Object.entries(failureBucketCounts)
+    .filter(([, count]) => count > 0)
+    .sort((left, right) => right[1] - left[1] || left[0].localeCompare(right[0]));
+  return entries.length === 0
+    ? "none: 0"
+    : entries
+        .slice(0, 3)
+        .map(([bucket, count]) => `${bucket}: ${count}`)
+        .join(", ");
+}
+
 function canRunPreviewNow(state: RouterWorkbenchStateData): boolean {
   return Boolean(getActiveQueryTextValue(state)) && state.packStatus === "complete";
 }
 
 function canRunJudgedRoute(state: RouterWorkbenchStateData): boolean {
   return canRunPreviewNow(state) && state.readiness.judged_route_enabled;
+}
+
+function canExportJudgedRoute(state: RouterWorkbenchStateData): boolean {
+  return (
+    state.routeResponse?.route_label === "judged_route" &&
+    Boolean(state.routeResponse.judge_decision)
+  );
+}
+
+function canExportPreviewEvidence(state: RouterWorkbenchStateData): boolean {
+  return state.routeResponse?.route_label === "cpu_only_debug_preview";
 }
 
 async function parseUploadedJsonFile(file: File): Promise<unknown> {
@@ -1091,7 +1123,8 @@ function renderRouteActionPanel(state: RouterWorkbenchStateData): string {
       <button id="judged-route-button" ${!canRunJudgedRoute(state) || state.judgedStatus === "running" ? "disabled" : ""}>${state.judgedStatus === "running" ? "Running Judge" : "Run Judged Route"}</button>
       <button id="metrics-run-button" class="secondary-action" ${state.metricsStatus === "running" || state.packStatus !== "complete" ? "disabled" : ""}>${state.metricsStatus === "running" ? "Evaluating" : "Run Benchmark Eval"}</button>
       <button id="comparison-run-button" class="secondary-action" ${state.modeComparisonStatusState === "running" || state.packStatus !== "complete" ? "disabled" : ""}>${state.modeComparisonStatusState === "running" ? "Comparing Modes" : "Compare All Modes"}</button>
-      <button id="export-evidence-button" class="secondary-action" ${!state.routeResponse ? "disabled" : ""}>Export Evidence</button>
+      <button id="export-judged-evidence-button" class="secondary-action" ${!canExportJudgedRoute(state) ? "disabled" : ""}>Export Judged Route Evidence</button>
+      <button id="export-preview-evidence-button" class="secondary-action" ${!canExportPreviewEvidence(state) ? "disabled" : ""}>Export Preview Route Evidence</button>
       <button id="export-logs-button" class="secondary-action">Export Logs</button>
       ${state.exportMessage ? `<p class="export-message">${escapeHtmlText(state.exportMessage)}</p>` : ""}
       ${renderRouteProgressStagesList(state.routeProgressStagesList)}
@@ -1199,6 +1232,7 @@ function renderBenchmarkHealthPanel(state: RouterWorkbenchStateData): string {
               <div><strong>${formatMetricValue(report.abstention_accuracy)}</strong><span>Abstention</span></div>
               <div><strong>${formatMetricValue(report.judged_route_accuracy)}</strong><span>Judged route</span></div>
               <div><strong>${formatMetricValue(report.token_reduction_estimate)}</strong><span>Token reduction</span></div>
+              <div><strong>${escapeHtmlText(createFailureBucketSummary(report.failure_bucket_counts))}</strong><span>Failure buckets</span></div>
             </div>
           `
           : `<p class="empty-state">Run benchmark eval to compare the selected CPU router.</p>`
