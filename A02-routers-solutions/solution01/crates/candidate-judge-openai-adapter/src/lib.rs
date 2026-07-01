@@ -69,6 +69,20 @@ pub fn judge_candidate_tools_top(
             needs_more_metadata: true,
         });
     }
+    if request
+        .candidates
+        .first()
+        .is_some_and(|candidate| candidate.risk == "ambiguous_write")
+    {
+        return Ok(JudgeDecisionOutputData {
+            selected_tool_id: None,
+            confidence: 0.2,
+            reason: "Top CPU candidate had ambiguous write risk, so the judge abstained."
+                .to_string(),
+            decision: JudgeDecisionKindData::Abstain,
+            needs_more_metadata: true,
+        });
+    }
     let selected_tool_id = request
         .candidates
         .first()
@@ -114,7 +128,7 @@ pub fn create_openai_responses_payload(
                 "content": [
                     {
                         "type": "input_text",
-                        "text": "You are a tool routing judge. Review only the provided CPU top-five candidate cards. Return one JSON decision: select_tool when one candidate safely satisfies the query, otherwise abstain. Never invent tool ids."
+                        "text": "You are a tool routing judge. Review only the provided CPU top-five candidate cards. Return one JSON decision: select_tool when one candidate safely satisfies the query, otherwise abstain. Prefer abstention over unsafe write exposure when write intent is ambiguous. Never invent tool ids."
                     }
                 ]
             },
@@ -311,6 +325,22 @@ mod tests {
             query: "route unsupported action".to_string(),
             recent_context: None,
             candidates: Vec::new(),
+        };
+        let decision = judge_candidate_tools_top(&request).expect("judge should respond");
+
+        assert_eq!(decision.decision, JudgeDecisionKindData::Abstain);
+        assert_eq!(decision.selected_tool_id, None);
+        assert!(decision.needs_more_metadata);
+    }
+
+    #[test]
+    fn judge_abstains_for_ambiguous_write() {
+        let mut candidate = create_candidate_card_data("chat.read_message", 1);
+        candidate.risk = "ambiguous_write".to_string();
+        let request = JudgeCandidateRequestData {
+            query: "send a message to the incident channel".to_string(),
+            recent_context: None,
+            candidates: vec![candidate],
         };
         let decision = judge_candidate_tools_top(&request).expect("judge should respond");
 

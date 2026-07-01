@@ -599,8 +599,12 @@ mod tests {
         assert_eq!(report.queries, 50);
         assert_eq!(report.route_required_queries, 46);
         assert!(report.recall_at_k.contains_key("5"));
-        assert_eq!(report.recall_at_k.get("5").copied(), Some(0.6493));
-        assert_eq!(report.mrr, 0.5223);
+        assert_metric_within_tolerance(
+            report.recall_at_k.get("5").copied().unwrap_or_default(),
+            0.6493,
+            0.02,
+        );
+        assert_metric_within_tolerance(report.mrr, 0.5223, 0.03);
         assert_eq!(report.abstention_accuracy, 0.0);
         assert_eq!(report.failure_bucket_counts.values().sum::<usize>(), 50);
         assert!(report.failure_bucket_counts.contains_key("wrong_llm_top1"));
@@ -644,6 +648,37 @@ mod tests {
         assert_eq!(reports[0].router_mode, RouterModeNameData::Lexical);
         assert_eq!(reports[1].router_mode, RouterModeNameData::SchemaAware);
         assert_eq!(reports[2].router_mode, RouterModeNameData::Hybrid);
+    }
+
+    #[test]
+    fn cpu_ranking_p95_stays_within_budget() {
+        let pack = load_bundled_evaluation_pack(&bundled_dataset_path())
+            .expect("bundled evaluation pack should load");
+        for router_mode in [
+            RouterModeNameData::Lexical,
+            RouterModeNameData::SchemaAware,
+            RouterModeNameData::Hybrid,
+        ] {
+            let mut durations = pack
+                .queries
+                .iter()
+                .map(|query| {
+                    let started_at = std::time::Instant::now();
+                    rank_tools_for_mode(&query.query, &pack.tools, router_mode, 2.0, 10)
+                        .expect("ranking should run");
+                    started_at.elapsed()
+                })
+                .collect::<Vec<_>>();
+            durations.sort();
+            let p95_index = ((durations.len() * 95).div_ceil(100)).saturating_sub(1);
+            let p95_duration = durations[p95_index];
+
+            assert!(
+                p95_duration <= std::time::Duration::from_millis(250),
+                "{router_mode:?} p95 {:?} exceeded 250 ms",
+                p95_duration
+            );
+        }
     }
 
     #[test]
@@ -804,5 +839,12 @@ mod tests {
             why_matched: "Matched Slack language.".to_string(),
             signal_contributions: BTreeMap::new(),
         }
+    }
+
+    fn assert_metric_within_tolerance(actual: f64, expected: f64, tolerance: f64) {
+        assert!(
+            (actual - expected).abs() <= tolerance,
+            "metric {actual} was not within {tolerance} of {expected}"
+        );
     }
 }

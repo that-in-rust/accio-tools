@@ -230,16 +230,17 @@ pub fn rank_lexical_tools_baseline(
             .then_with(|| right.1.cmp(&left.1))
     });
 
+    let tools_by_id: HashMap<&str, &ToolCatalogRecordData> =
+        tools.iter().map(|tool| (tool.id.as_str(), tool)).collect();
     let mut cards = Vec::new();
     for (index, (score, tool_id, matched_terms)) in
         scored.into_iter().take(max_candidates).enumerate()
     {
-        let tool = tools
-            .iter()
-            .find(|candidate| candidate.id == tool_id)
-            .ok_or_else(|| RouterTypedErrorKind::CatalogValidationFailed {
+        let tool = tools_by_id.get(tool_id.as_str()).ok_or_else(|| {
+            RouterTypedErrorKind::CatalogValidationFailed {
                 message: format!("ranked tool {tool_id} was not found in catalog"),
-            })?;
+            }
+        })?;
         let matched_fields = collect_matched_fields_names(tool, &matched_terms);
         let mut signal_contributions = BTreeMap::new();
         signal_contributions.insert("lexical".to_string(), score);
@@ -265,34 +266,29 @@ pub fn score_schema_capability_signals(
     max_candidates: usize,
 ) -> Result<Vec<CandidateEvidenceCardData>, RouterTypedErrorKind> {
     let mut candidates = rank_lexical_tools_baseline(query, tools, 0.0, tools.len())?;
+    let tools_by_id: HashMap<&str, &ToolCatalogRecordData> =
+        tools.iter().map(|tool| (tool.id.as_str(), tool)).collect();
     let query_terms: BTreeSet<String> = tokenize_text_terms_only(query).into_iter().collect();
     for candidate in &mut candidates {
-        let Some(tool) = tools.iter().find(|tool| tool.id == candidate.tool_id) else {
+        let Some(tool) = tools_by_id.get(candidate.tool_id.as_str()) else {
             continue;
         };
         let mut schema_score = 0.0;
         let mut capability_match = Vec::new();
-        let name_terms: BTreeSet<String> =
-            tokenize_text_terms_only(&tool.name).into_iter().collect();
-        let description_terms: BTreeSet<String> = tokenize_text_terms_only(&tool.description)
-            .into_iter()
-            .collect();
+        let name_terms = tokenize_text_terms_only(&tool.name);
+        let description_terms = tokenize_text_terms_only(&tool.description);
         let schema_text = flatten_json_schema_text(&tool.input_schema);
-        let schema_terms: BTreeSet<String> =
-            tokenize_text_terms_only(&schema_text).into_iter().collect();
+        let schema_terms = tokenize_text_terms_only(&schema_text);
 
-        if query_terms.iter().any(|term| name_terms.contains(term)) {
+        if field_terms_contain_query_term(&name_terms, &query_terms) {
             schema_score += 2.0;
             capability_match.push("operation".to_string());
         }
-        if query_terms
-            .iter()
-            .any(|term| description_terms.contains(term))
-        {
+        if field_terms_contain_query_term(&description_terms, &query_terms) {
             schema_score += 2.0;
             capability_match.push("object".to_string());
         }
-        if query_terms.iter().any(|term| schema_terms.contains(term)) {
+        if field_terms_contain_query_term(&schema_terms, &query_terms) {
             schema_score += 1.5;
             capability_match.push("parameter".to_string());
         }
@@ -336,6 +332,12 @@ pub fn score_schema_capability_signals(
         candidate.rank = index + 1;
     }
     Ok(candidates)
+}
+
+fn field_terms_contain_query_term(field_terms: &[String], query_terms: &BTreeSet<String>) -> bool {
+    field_terms
+        .iter()
+        .any(|field_term| query_terms.contains(field_term))
 }
 
 pub fn rank_tools_for_mode(
@@ -502,10 +504,12 @@ fn create_tool_search_text(tool: &ToolCatalogRecordData) -> String {
     [
         tool.id.as_str(),
         tool.source_tool_id.as_deref().unwrap_or_default(),
+        tool.server_id.as_deref().unwrap_or_default(),
         tool.server_name.as_deref().unwrap_or_default(),
         tool.name.as_str(),
         tool.description.as_str(),
         &tool.tags.join(" "),
+        &flatten_json_value_text(&tool.source),
         &flatten_json_value_text(&tool.input_schema),
     ]
     .join(" ")
@@ -549,10 +553,12 @@ fn collect_matched_fields_names(
             "source_tool_id",
             tool.source_tool_id.clone().unwrap_or_default(),
         ),
+        ("server_id", tool.server_id.clone().unwrap_or_default()),
         ("server_name", tool.server_name.clone().unwrap_or_default()),
         ("name", tool.name.clone()),
         ("description", tool.description.clone()),
         ("tags", tool.tags.join(" ")),
+        ("source", flatten_json_value_text(&tool.source)),
         ("input_schema", flatten_json_value_text(&tool.input_schema)),
     ];
     for (field_name, value) in field_values {
@@ -633,6 +639,44 @@ mod tests {
             .expect_err("present source metadata must not be blank");
 
         assert!(error.to_string().contains("empty source_tool_id"));
+    }
+
+    #[test]
+    fn unknown_metadata_preserves_extra_fields() {
+        let parsed: ToolCatalogRecordData = serde_json::from_value(serde_json::json!({
+            "id": "tool.extra",
+            "name": "extra_search",
+            "description": "Search extra records",
+            "input_schema": {"type": "object"},
+            "tags": [],
+            "custom_vendor_field": {"tier": "gold"}
+        }))
+        .expect("tool should parse");
+
+        assert_eq!(
+            parsed.unknown_metadata.get("custom_vendor_field"),
+            Some(&serde_json::json!({"tier": "gold"}))
+        );
+    }
+
+    #[test]
+    fn lexical_scores_server_source_text() {
+        let mut tool = create_tool_record_value("tool.github", "list_issues", "List issues");
+        tool.server_id = Some("graph_openapi.github".to_string());
+        tool.server_name = Some("github".to_string());
+        tool.source = serde_json::json!({
+            "repo": "graph_openapi",
+            "path": "git-ref-repo/graph_openapi/github.json"
+        });
+        let ranked = rank_lexical_tools_baseline("github graph_openapi", &[tool], 0.0, 1)
+            .expect("ranker should include source metadata");
+
+        assert_eq!(ranked[0].tool_id, "tool.github");
+        assert!(ranked[0].matched_fields.contains(&"server_id".to_string()));
+        assert!(ranked[0]
+            .matched_fields
+            .contains(&"server_name".to_string()));
+        assert!(ranked[0].matched_fields.contains(&"source".to_string()));
     }
 
     #[test]

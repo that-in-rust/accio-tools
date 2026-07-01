@@ -262,7 +262,7 @@ function bindWorkbenchEventHandlers(
 
   root.querySelectorAll<HTMLButtonElement>("[data-router-mode]").forEach((button) => {
     button.addEventListener("click", () => {
-      state.routerMode = button.dataset.routerMode as RouterModeNameData;
+      selectRouterModeOption(state, button.dataset.routerMode);
       render();
     });
   });
@@ -404,6 +404,23 @@ function selectQuerySourceOption(
     state,
     source === "benchmark" ? "Using benchmark query." : "Using custom query.",
   );
+}
+
+function selectRouterModeOption(
+  state: RouterWorkbenchStateData,
+  mode: string | undefined,
+) {
+  if (!isRouterModeNameValue(mode)) {
+    pushActivityLogEntry(state, "Ignored unsupported router mode value.");
+    return;
+  }
+  state.routerMode = mode;
+}
+
+function isRouterModeNameValue(
+  mode: string | undefined,
+): mode is RouterModeNameData {
+  return mode === "lexical" || mode === "schema_aware" || mode === "hybrid";
 }
 
 async function runCpuPreviewOnly(

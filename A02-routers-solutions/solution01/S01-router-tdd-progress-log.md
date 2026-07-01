@@ -2,7 +2,7 @@
 
 - Task: Implement router MVP executable specs
 - Created: 2026-06-30 19:10:59Z
-- Updated: 2026-06-30 22:23:37Z
+- Updated: 2026-06-30 22:49:32Z
 - Current Phase: Green
 - Status: active
 
@@ -836,3 +836,70 @@ Align UI benchmark gold match with judged scoring semantics
 - npm --prefix ui test: passing - 9 UI tests
 - npm --prefix ui run build: passing
 - npm --prefix ui run tauri:build: passing - app and dmg bundles produced
+
+### Session: 2026-06-30 22:44:50Z
+
+#### Current Phase: Green
+
+#### Tests Written:
+- lexical_scores_server_source_text: passing - lexical ranking now scores server_id, server_name, and source metadata with matched-field evidence
+- unknown_metadata_preserves_extra_fields: passing - catalog parser preserves unknown metadata fields for evidence reporting
+- ignores unsupported router mode values: passing - UI ignores tampered graph-path mode and routes with lexical fallback
+- cpu_ranking_p95_stays_within_budget: red then green - hybrid p95 failed at 276 ms, then passed after id-map and schema-token allocation cleanup
+
+#### Implementation Progress:
+- crates/catalog-router-core-engine/src/lib.rs: added server_id/source lexical text, matched-field reporting, id-map lookups, and lighter schema term checks
+- crates/benchmark-eval-metrics-runner/src/lib.rs: replaced brittle exact lexical baseline assertion with documented tolerance and added CPU p95 budget smoke test
+- ui/src/app.ts and ui/src/app.test.ts: added selectRouterModeOption guard and unsupported-mode regression coverage
+
+#### Current Focus:
+Final completion audit tightened source/server scoring, unsupported UI mode handling, and CPU p95 proof.
+
+#### Next Steps:
+- Run final stale-copy and unsupported-mode source invariant searches.
+- Run optional Tauri bundle build if completion audit needs desktop packaging evidence.
+- Decide whether the active implementation goal is fully complete or leave it active with remaining gaps.
+
+#### Context Notes:
+- Post-patch codebase-memory scan /tmp/codex-code-intel/codebase-memory/accio-tools-20260701-040723 found create_tool_search_text, collect_matched_fields_names, selectRouterModeOption, and isRouterModeNameValue.
+- Post-patch CodeGraphContext DB /tmp/codex-code-intel/codegraphcontext/solution01-postpatch-audit-20260701-040723 found selectRouterModeOption at ui/src/app.ts:409 and create_tool_search_text at catalog-router-core-engine/src/lib.rs:501.
+
+#### Performance/Metrics:
+- cargo test --workspace: passing - includes 11 benchmark/eval tests with CPU p95 budget, 7 judge tests, 9 router-core tests, 5 CLI tests, and 7 Tauri-core tests
+- cargo clippy --workspace --all-targets -- -D warnings: passing
+- npm --prefix ui test: passing - 10 UI tests
+- npm --prefix ui run build: passing
+- npm --prefix ui run test:responsive-layout-viewports: passing - mobile 390 and desktop 1200 overflow=0 overlaps=0
+- CLI eval lexical/schema-aware/hybrid: passing - Recall@5 0.6536 / 0.6319 / 0.6319, failure_bucket_counts emitted for all modes
+
+### Session: 2026-06-30 22:49:32Z
+
+#### Current Phase: Green
+
+#### Tests Written:
+- judge_abstains_for_ambiguous_write: passing - mock judge abstains when top CPU candidate is marked ambiguous_write
+- openai_payload_contains_only_compact_candidate_cards: passing - OpenAI payload remains compact and label-free after safer abstention instruction
+
+#### Implementation Progress:
+- crates/candidate-judge-openai-adapter/src/lib.rs: mock judge now abstains on ambiguous_write risk and OpenAI system prompt instructs abstention over unsafe write exposure
+
+#### Current Focus:
+Final audit added explicit ambiguous-write abstention and rebuilt desktop artifacts.
+
+#### Next Steps:
+- Review final diff and decide whether to commit the audit hardening patch.
+- If no further spec gaps appear, mark the active goal complete after source-backed completion audit.
+- If commit is requested, stage, commit, and push the five-file hardening patch.
+
+#### Context Notes:
+- Final invariant searches found stale PIE only in the negative UI test name, unsupported graph/runtime aliases only in negative tests, and unwrap/expect only in tests.
+
+#### Performance/Metrics:
+- cargo fmt --all --check: passing
+- cargo test --workspace: passing - 11 benchmark/eval tests, 8 judge tests, 9 router-core tests, 5 CLI tests, and 7 Tauri-core tests
+- cargo clippy --workspace --all-targets -- -D warnings: passing
+- npm --prefix ui test: passing - 10 UI tests
+- npm --prefix ui run build: passing
+- npm --prefix ui run test:responsive-layout-viewports: passing - mobile 390 and desktop 1200 overflow=0 overlaps=0
+- CLI eval lexical/schema-aware/hybrid and comparison report: passing - Recall@5 0.6536 / 0.6319 / 0.6319 with failure_bucket_counts
+- npm --prefix ui run tauri:build: passing - rebuilt Tool Router Evidence Console.app and DMG

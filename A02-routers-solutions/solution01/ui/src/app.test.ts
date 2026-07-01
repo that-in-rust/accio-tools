@@ -82,6 +82,26 @@ describe("router workbench journey", () => {
     expect(getButtonByLabelText("Export Preview Route Evidence").disabled).toBe(false);
   });
 
+  it("ignores unsupported router mode values", async () => {
+    const invoke = createRouterInvokeMock();
+
+    renderRouterWorkbenchApp(invoke);
+    await flushAsyncViewUpdates();
+    const hybridButton = getButtonByLabelText("Hybrid RRF");
+    hybridButton.dataset.routerMode = "graph-path";
+    hybridButton.click();
+    await flushAsyncViewUpdates();
+    getButtonByLabelText("Run CPU Preview").click();
+    await flushAsyncViewUpdates();
+
+    expect(invoke).toHaveBeenCalledWith("run_cpu_preview_only", {
+      request: expect.objectContaining({
+        router_mode: "lexical",
+      }),
+    });
+    expect(readScreenTextContent()).toContain("Ignored unsupported router mode value.");
+  });
+
   it("validates judge key and runs judged route", async () => {
     const invoke = createRouterInvokeMock();
 
