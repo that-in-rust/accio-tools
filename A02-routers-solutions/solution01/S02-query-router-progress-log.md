@@ -2,8 +2,8 @@
 
 - Task: Implement Spec 02 query-level router MVP
 - Created: 2026-07-01 01:28:30Z
-- Updated: 2026-07-01 02:12:14Z
-- Current Phase: Red
+- Updated: 2026-07-01 02:20:20Z
+- Current Phase: Refactor
 - Status: active
 
 ## Sessions
@@ -162,3 +162,34 @@ Spec 02 selected-router MVP UI tests
 
 #### Performance/Metrics:
 - npm ui test: 6 failed, 1 passed; failures are expected red failures around missing Run Selected Route Decision
+
+### Session: 2026-07-01 02:20:20Z
+
+#### Current Phase: Refactor
+
+#### Tests Written:
+- npm ui test: passing - 7 selected-router UI tests pass
+- npm ui build: passing - tsc and vite production build pass
+- npm responsive layout verifier: passing - mobile and desktop overflow=0 overlaps=0 routeDecisions=1 hiddenLabLabels=0
+- cargo test --workspace: passing - Rust workspace and doctests pass
+- cargo clippy --workspace --all-targets -- -D warnings: passing - no Rust warnings
+
+#### Implementation Progress:
+- ui/src/app.ts: primary flow now renders router selector, one Run Selected Route Decision action, and one Route Decision panel; visible lab/export/upload controls removed
+- ui/src/app.test.ts: replaced comparison-lab tests with Spec 02 selected-router contract tests
+- ui/scripts/verify-responsive-layout-viewports.mjs: verifies selected-route journey instead of three-row comparison
+- ui/src/styles.css: added route decision grid and readable raw-id styling
+
+#### Current Focus:
+Spec 02 selected-router MVP implementation verified
+
+#### Next Steps:
+- Open or refresh the running Tauri app for manual review
+- If user approves, commit/push any remaining journal changes
+- Optionally remove unused legacy programmatic comparison helpers in a later cleanup if we no longer need developer-only commands
+
+#### Context Notes:
+- No new Rust/Tauri command was required; typed frontend orchestration reuses route_tools_for_query so the judge reviews only the selected router mode.
+
+#### Performance/Metrics:
+- Responsive verifier: mobile overflow=0 overlaps=0 routeDecisions=1 hiddenLabLabels=0; desktop overflow=0 overlaps=0 routeDecisions=1 hiddenLabLabels=0

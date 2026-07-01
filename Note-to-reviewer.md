@@ -47,7 +47,7 @@ a CPU tool (like BM25 search or similar algos) - shortlists top 5 tools
 
 feeds into
 
-an LLM judge (GPT 5 Mini API) which selections the top 1
+an LLM judge (GPT 4.1 Mini API) which selections the top 1
 
 
 Approach 2: A multi-step bidrectional tool-selection workflow
@@ -56,7 +56,7 @@ CPU tool shortlists top 10 tools
 feeds into
 a different CPU tool that further shortlists top 5 tools from the available 10 tools
 feeds into
-an LLM judge (GPT 5 Mini API) which selections the top 1
+an LLM judge (GPT 4.1 Mini API) which selections the top 1
 
 Do you see the pattern, I can take a number of combinations here, change the order and arrive at a different tool selection workflow
 
