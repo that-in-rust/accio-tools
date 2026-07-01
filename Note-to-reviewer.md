@@ -58,12 +58,16 @@ a different CPU tool that further shortlists top 5 tools from the available 10 t
 feeds into
 an LLM judge (GPT 4.1 Mini API) which selections the top 1
 
-Do you see the pattern, I can take a number of combinations here, change the order and arrive at a different tool selection workflow
 
 The meta pattern is:
 Select a CPU tool to shortlist top M tools -> 
 Select another CPU or LLM to shortlist N tools from the available M tools -> 
-Select another CPU or LLM to shortlist O tools from the available N tools -> 
+Select another CPU or LLM to shortlist O tools from the available N tools ...
+
+
+I can take a number of combinations here, change the order and arrive at a different tool selection workflow
+
+you can take as many steps as you want and arrive at a different tool selection workflow
 
 And each CPU tool here can be any search + ranking algo, RAG, actual existing tool infra like elasticsearch, vector search, etc. and each LLM can be any LLM that can do reasoning and selection
 
