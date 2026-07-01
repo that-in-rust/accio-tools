@@ -225,8 +225,9 @@ function bindWorkbenchEventHandlers(
         ...state.readiness,
         judge_key_ready: false,
         judged_route_enabled: false,
-        readiness_message: "CPU preview is available; judged route needs a key.",
+        readiness_message: "Validate a judge key to run the final route decision.",
       };
+      clearRouteDecisionState(state);
       render();
     },
   );
@@ -250,7 +251,7 @@ function bindWorkbenchEventHandlers(
     "change",
     (event) => {
       state.selectedQueryId = (event.target as HTMLSelectElement).value;
-      clearQueryComparisonState(state);
+      clearRouteDecisionState(state);
       render();
     },
   );
@@ -265,22 +266,8 @@ function bindWorkbenchEventHandlers(
       )
         ? state.selectedQueryId
         : filteredQueries[0]?.id ?? "";
-      clearQueryComparisonState(state);
+      clearRouteDecisionState(state);
       render();
-    },
-  );
-
-  queryElementById<HTMLInputElement>(root, "custom-catalog-input")?.addEventListener(
-    "change",
-    (event) => {
-      void loadCustomCatalogFile(event.target as HTMLInputElement, state, render);
-    },
-  );
-
-  queryElementById<HTMLInputElement>(root, "custom-query-file-input")?.addEventListener(
-    "change",
-    (event) => {
-      void loadCustomQueryFile(event.target as HTMLInputElement, state, render);
     },
   );
 
@@ -288,7 +275,7 @@ function bindWorkbenchEventHandlers(
     "input",
     (event) => {
       state.customQuery = (event.target as HTMLTextAreaElement).value;
-      clearQueryComparisonState(state);
+      clearRouteDecisionState(state);
       render();
     },
   );
@@ -297,7 +284,7 @@ function bindWorkbenchEventHandlers(
     "input",
     (event) => {
       state.recentContext = (event.target as HTMLTextAreaElement).value;
-      clearQueryComparisonState(state);
+      clearRouteDecisionState(state);
       render();
     },
   );
@@ -323,10 +310,10 @@ function bindWorkbenchEventHandlers(
     },
   );
 
-  queryElementById<HTMLButtonElement>(root, "routing-comparison-button")?.addEventListener(
+  queryElementById<HTMLButtonElement>(root, "selected-route-button")?.addEventListener(
     "click",
     () => {
-      void runQueryComparisonFlow(state, invoke, render);
+      void routeToolsForQuery(state, invoke, render);
     },
   );
 
@@ -446,8 +433,7 @@ function selectQuerySourceOption(
   source: QuerySourceModeData,
 ) {
   state.querySource = source;
-  state.routeResponse = null;
-  state.lastRouteRequest = null;
+  clearRouteDecisionState(state);
   state.errorMessage = "";
   pushActivityLogEntry(
     state,
@@ -464,6 +450,7 @@ function selectRouterModeOption(
     return;
   }
   state.routerMode = mode;
+  clearRouteDecisionState(state);
 }
 
 function isRouterModeNameValue(
@@ -1040,9 +1027,13 @@ function createReadableQueryLabel(
   return `${query.query} - ${expected} (${query.id})`;
 }
 
-function clearQueryComparisonState(state: RouterWorkbenchStateData) {
+function clearRouteDecisionState(state: RouterWorkbenchStateData) {
   state.queryComparisonRowsList = [];
   state.queryComparisonStatusState = "idle";
+  state.routeResponse = null;
+  state.lastRouteRequest = null;
+  state.routeProgressStagesList = createRouteProgressStagesList("idle");
+  state.exportMessage = "";
 }
 
 function getActiveQueryTextValue(state: RouterWorkbenchStateData): string {
@@ -1292,16 +1283,16 @@ function renderRouterWorkbenchView(state: RouterWorkbenchStateData): string {
             <div><dt>Tools</dt><dd>${state.tools.length || "..."}</dd></div>
             <div><dt>Queries</dt><dd>${state.queries.length || "..."}</dd></div>
             <div><dt>Mode</dt><dd>${routerModeLabelsData[state.routerMode]}</dd></div>
-            <div><dt>Judge</dt><dd>${state.readiness.judge_key_ready ? "Ready" : "Preview only"}</dd></div>
+            <div><dt>Judge</dt><dd>${state.readiness.judge_key_ready ? "Ready" : "Key needed"}</dd></div>
           </dl>
         </header>
         ${renderJudgeKeyCard(state)}
         ${renderEvaluationPackCard(state)}
         ${renderQuerySourcePanel(state)}
         ${renderExpectedToolSummary(state)}
+        ${renderRouterModePanel(state)}
         ${renderRouteActionPanel(state)}
-        ${renderRoutingComparisonPanel(state)}
-        ${renderAdvancedEvidenceDrawer(state)}
+        ${renderRouteDecisionPanel(state)}
         ${state.errorMessage ? `<section class="error" role="alert">${escapeHtmlText(state.errorMessage)}</section>` : ""}
       </section>
       ${renderActivityLogPanel(state)}
@@ -1321,7 +1312,7 @@ function renderJudgeKeyCard(state: RouterWorkbenchStateData): string {
       <div class="section-title-row">
         <div>
           <h2>Judge Session</h2>
-          <p>CPU preview stays available without a key. Judged route unlocks after validation.</p>
+          <p>A final route decision unlocks after validation.</p>
         </div>
         <span class="status-pill">${escapeHtmlText(state.readiness.model_label)}</span>
       </div>
@@ -1442,7 +1433,7 @@ function renderExpectedToolSummary(state: RouterWorkbenchStateData): string {
       <section class="expected-tool-panel">
         <h2>Expected Outcome</h2>
         <p><strong>No benchmark label</strong></p>
-        <p class="query-summary">Custom inquiries can be compared across routers, but this MVP cannot score pass/fail without a gold tool label.</p>
+        <p class="query-summary">Custom inquiries use the selected router and judge, but this MVP cannot score pass/fail without a gold tool label.</p>
       </section>
     `;
   }
@@ -1479,40 +1470,11 @@ function renderExpectedToolSummary(state: RouterWorkbenchStateData): string {
 function renderRouteActionPanel(state: RouterWorkbenchStateData): string {
   return `
     <section class="action-panel">
-      <button id="routing-comparison-button" ${!canRunPreviewNow(state) || state.queryComparisonStatusState === "running" ? "disabled" : ""}>${state.queryComparisonStatusState === "running" ? "Running Routing Comparison" : "Run Routing Comparison"}</button>
+      <button id="selected-route-button" ${!canRunJudgedRoute(state) || state.judgedStatus === "running" ? "disabled" : ""}>${state.judgedStatus === "running" ? "Running Route Decision" : "Run Selected Route Decision"}</button>
+      ${!state.readiness.judged_route_enabled ? `<p class="empty-state">Validate a judge key to run the final route decision.</p>` : ""}
       ${state.exportMessage ? `<p class="export-message">${escapeHtmlText(state.exportMessage)}</p>` : ""}
       ${renderRouteProgressStagesList(state.routeProgressStagesList)}
     </section>
-  `;
-}
-
-function renderAdvancedRouteControls(state: RouterWorkbenchStateData): string {
-  return `
-    <div class="advanced-control-grid">
-      <button id="cpu-preview-button" ${!canRunPreviewNow(state) || state.previewStatus === "running" ? "disabled" : ""}>${state.previewStatus === "running" ? "Running Preview" : "Run CPU Preview"}</button>
-      <button id="judged-route-button" ${!canRunJudgedRoute(state) || state.judgedStatus === "running" ? "disabled" : ""}>${state.judgedStatus === "running" ? "Running Judge" : "Run Judged Route"}</button>
-      <button id="metrics-run-button" class="secondary-action" ${state.metricsStatus === "running" || state.packStatus !== "complete" ? "disabled" : ""}>${state.metricsStatus === "running" ? "Evaluating" : "Run Benchmark Eval"}</button>
-      <button id="comparison-run-button" class="secondary-action" ${state.modeComparisonStatusState === "running" || state.packStatus !== "complete" ? "disabled" : ""}>${state.modeComparisonStatusState === "running" ? "Comparing Modes" : "Compare All Modes"}</button>
-      <button id="download-pack-button" class="secondary-action" ${state.packStatus !== "complete" ? "disabled" : ""}>Download Evaluation Pack</button>
-      <button id="export-judged-evidence-button" class="secondary-action" ${!canExportJudgedRoute(state) ? "disabled" : ""}>Export Judged Route Evidence</button>
-      <button id="export-preview-evidence-button" class="secondary-action" ${!canExportPreviewEvidence(state) ? "disabled" : ""}>Export Preview Route Evidence</button>
-      <button id="export-logs-button" class="secondary-action">Export Logs</button>
-    </div>
-  `;
-}
-
-function renderAdvancedUploadControls(): string {
-  return `
-    <div class="upload-grid">
-      <label class="field-stack" for="custom-catalog-input">
-        <span>Custom catalog JSON</span>
-        <input id="custom-catalog-input" type="file" accept="application/json,.json" />
-      </label>
-      <label class="field-stack" for="custom-query-file-input">
-        <span>Custom query JSON</span>
-        <input id="custom-query-file-input" type="file" accept="application/json,.json" />
-      </label>
-    </div>
   `;
 }
 
@@ -1535,37 +1497,59 @@ function renderRouteProgressStagesList(
   `;
 }
 
-function renderRouteResultPanel(state: RouterWorkbenchStateData): string {
+function renderRouteDecisionPanel(state: RouterWorkbenchStateData): string {
+  const selectedModeLabel = routerModeLabelsData[state.routerMode];
   if (!state.routeResponse) {
     return `
       <section class="result-panel">
-        <h2>Route Result</h2>
-        <p class="empty-state">Run a preview or judged route to inspect ranked evidence.</p>
+        <div class="section-title-row">
+          <div>
+            <h2>Route Decision</h2>
+            <p>${escapeHtmlText(selectedModeLabel)} will shortlist five tools for judge review.</p>
+          </div>
+          <div class="decision-box">
+            <strong>No final route yet</strong>
+            <span>${state.readiness.judged_route_enabled ? "Ready to judge selected top five" : "Judge key required"}</span>
+          </div>
+        </div>
       </section>
     `;
   }
   const decision = state.routeResponse.judge_decision;
+  const decisionRow = createQueryComparisonRowData(
+    state,
+    state.routerMode,
+    state.routeResponse,
+  );
   return `
     <section class="result-panel">
       <div class="section-title-row">
         <div>
-          <h2>Route Result</h2>
-          <p>${escapeHtmlText(state.routeResponse.route_label)}</p>
+          <h2>Route Decision</h2>
+          <p>${escapeHtmlText(selectedModeLabel)} produced one top-five shortlist. The judge reviewed only that shortlist.</p>
         </div>
-        ${
-          decision
-            ? `<div class="decision-box"><strong>${escapeHtmlText(decision.selected_tool_id ?? "abstain")}</strong><span>${formatMetricValue(decision.confidence)} confidence</span></div>`
-            : `<div class="decision-box"><strong>Top five</strong><span>CPU preview only</span></div>`
-        }
+        <div class="decision-box">
+          <strong>${escapeHtmlText(decisionRow.verdictLabel)}</strong>
+          <span>${escapeHtmlText(decisionRow.verdictReason)}</span>
+        </div>
       </div>
+      <dl class="route-decision-grid">
+        <div><dt>Selected CPU router</dt><dd>${escapeHtmlText(selectedModeLabel)}</dd></div>
+        <div><dt>CPU top candidate</dt><dd>${escapeHtmlText(decisionRow.topOneDisplayName)}</dd></div>
+        <div><dt>Expected survival</dt><dd>${decisionRow.expectedInTopFive === null ? "No benchmark label" : decisionRow.expectedInTopFive ? `Yes, rank ${decisionRow.expectedRank}` : "No"}</dd></div>
+        <div><dt>Judge pick</dt><dd>${escapeHtmlText(decisionRow.judgePickDisplayName)}</dd></div>
+        ${decision ? `<div><dt>Confidence</dt><dd>${formatMetricValue(decision.confidence)}</dd></div>` : ""}
+      </dl>
       ${decision ? `<p class="judge-reason">${escapeHtmlText(decision.reason)}</p>` : ""}
-      ${renderCandidateEvidenceCards(state.routeResponse.candidates)}
+      <h3>Top Five Evidence</h3>
+      ${renderCandidateEvidenceCards(state.routeResponse.candidates, state.tools)}
     </section>
   `;
 }
 
 function renderCandidateEvidenceCards(
   candidates: CandidateEvidenceCardData[],
+  tools: ToolCatalogRecordData[],
 ): string {
   return `
     <div class="candidate-list">
@@ -1575,7 +1559,8 @@ function renderCandidateEvidenceCards(
             <article class="candidate-card" data-testid="candidate-card">
               <div class="candidate-rank">#${candidate.rank}</div>
               <div>
-                <h3>${escapeHtmlText(candidate.tool_id)}</h3>
+                <h3>${escapeHtmlText(createToolDisplayName(candidate.tool_id, tools))}</h3>
+                <p class="raw-tool-id">${escapeHtmlText(candidate.tool_id)}</p>
                 <p>${escapeHtmlText(candidate.why_matched)}</p>
                 <dl>
                   <div><dt>Score</dt><dd>${formatMetricValue(candidate.score)}</dd></div>
@@ -1589,156 +1574,6 @@ function renderCandidateEvidenceCards(
         )
         .join("")}
     </div>
-  `;
-}
-
-function renderRoutingComparisonPanel(state: RouterWorkbenchStateData): string {
-  if (state.queryComparisonRowsList.length === 0) {
-    return `
-      <section class="comparison-panel">
-        <h2>Query-Level Router Comparison</h2>
-        <p class="empty-state">Run routing comparison to see how each CPU router handles this one inquiry.</p>
-      </section>
-    `;
-  }
-  const summary = createQueryVerdictSummary(state.queryComparisonRowsList);
-  return `
-    <section class="comparison-panel">
-      <div class="section-title-row">
-        <div>
-          <h2>Query-Level Router Comparison</h2>
-          <p>One query, three deterministic shortlists, optional judge review.</p>
-        </div>
-        <div class="decision-box">
-          <strong>${escapeHtmlText(summary.label)}</strong>
-          <span>${escapeHtmlText(summary.explanation)}</span>
-        </div>
-      </div>
-      <div class="comparison-table-wrap">
-        <table class="comparison-table query-comparison-table">
-          <thead>
-            <tr>
-              <th>Mode</th>
-              <th>Top 1</th>
-              <th>Expected in top five</th>
-              <th>Rank</th>
-              <th>Judge pick</th>
-              <th>Verdict</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${state.queryComparisonRowsList
-              .map(
-                (row) => `
-                  <tr class="is-${row.verdictKind}">
-                    <td>${routerModeLabelsData[row.routerMode]}</td>
-                    <td>${escapeHtmlText(row.topOneDisplayName)}</td>
-                    <td>${row.expectedInTopFive === null ? "No benchmark label" : row.expectedInTopFive ? "Yes" : "No"}</td>
-                    <td>${row.expectedRank ? `rank ${row.expectedRank}` : "-"}</td>
-                    <td>${escapeHtmlText(row.judgePickDisplayName)}</td>
-                    <td><strong>${escapeHtmlText(row.verdictLabel)}</strong><span>${escapeHtmlText(row.verdictReason)}</span></td>
-                  </tr>
-                `,
-              )
-              .join("")}
-          </tbody>
-        </table>
-      </div>
-    </section>
-  `;
-}
-
-function createQueryVerdictSummary(
-  rows: QueryRouterComparisonRowData[],
-): QueryVerdictSummaryData {
-  if (rows.some((row) => row.verdictKind === "judge_rescued")) {
-    return {
-      label: "Judge rescued",
-      explanation: "The bidirectional flow recovered the expected tool from a CPU top-five shortlist.",
-    };
-  }
-  if (rows.some((row) => row.verdictKind === "pass")) {
-    return {
-      label: "Pass",
-      explanation: "At least one router produced a correct top result or judged route.",
-    };
-  }
-  if (rows.every((row) => row.verdictKind === "judge_not_run")) {
-    return {
-      label: "Judge not run",
-      explanation: "CPU shortlist evidence is available; final top-one judgment needs a validated key.",
-    };
-  }
-  if (rows.every((row) => row.verdictKind === "no_benchmark_label")) {
-    return {
-      label: "No benchmark label",
-      explanation: "Custom query comparison is visible, but gold scoring is unavailable.",
-    };
-  }
-  return {
-    label: rows[0]?.verdictLabel ?? "No result",
-    explanation: rows[0]?.verdictReason ?? "Run comparison to score this query.",
-  };
-}
-
-function renderAdvancedEvidenceDrawer(state: RouterWorkbenchStateData): string {
-  return `
-    <details class="advanced-evidence" data-testid="advanced-evidence">
-      <summary>Advanced Evidence</summary>
-      <div class="advanced-evidence-body">
-        ${renderAdvancedUploadControls()}
-        ${renderRouterModePanel(state)}
-        <section class="action-panel action-panel--advanced">
-          ${renderAdvancedRouteControls(state)}
-        </section>
-        ${renderRouteResultPanel(state)}
-        ${renderBenchmarkHealthPanel(state)}
-      </div>
-    </details>
-  `;
-}
-
-function renderBenchmarkHealthPanel(state: RouterWorkbenchStateData): string {
-  const report = state.metricsReport;
-  const gold = createBenchmarkGoldMatch(state);
-  return `
-    <section class="metrics-panel">
-      <div class="section-title-row">
-        <div>
-          <h2>Benchmark Health</h2>
-          <p>Metrics are computed from the same bundled 50-query subset.</p>
-        </div>
-      </div>
-      ${
-        report
-          ? `
-            <div class="metric-grid">
-              <div><strong>${formatMetricValue(report.recall_at_k["1"] ?? 0)}</strong><span>Recall@1</span></div>
-              <div><strong>${formatMetricValue(report.recall_at_k["3"] ?? 0)}</strong><span>Recall@3</span></div>
-              <div><strong>${formatMetricValue(report.recall_at_k["5"] ?? 0)}</strong><span>Recall@5</span></div>
-              <div><strong>${formatMetricValue(report.recall_at_k["10"] ?? 0)}</strong><span>Recall@10</span></div>
-              <div><strong>${formatMetricValue(report.mrr)}</strong><span>MRR</span></div>
-              <div><strong>${formatMetricValue(report.ndcg_at_10)}</strong><span>nDCG@10</span></div>
-              <div><strong>${formatMetricValue(report.abstention_accuracy)}</strong><span>Abstention</span></div>
-              <div><strong>${formatMetricValue(report.judged_route_accuracy)}</strong><span>Judged route</span></div>
-              <div><strong>${formatMetricValue(report.token_reduction_estimate)}</strong><span>Token reduction</span></div>
-              <div><strong>${escapeHtmlText(createFailureBucketSummary(report.failure_bucket_counts))}</strong><span>Failure buckets</span></div>
-            </div>
-          `
-          : `<p class="empty-state">Run benchmark eval to compare the selected CPU router.</p>`
-      }
-      ${
-        gold
-          ? `
-            <div class="metric-grid benchmark-gold-grid">
-              <div><strong>${escapeHtmlText(gold.gold_match_status)}</strong><span>Gold status</span></div>
-              <div><strong>${escapeHtmlText(gold.failure_bucket)}</strong><span>Failure bucket</span></div>
-            </div>
-          `
-          : ""
-      }
-      ${renderModeComparisonTable(state.modeComparisonReportsList)}
-    </section>
   `;
 }
 

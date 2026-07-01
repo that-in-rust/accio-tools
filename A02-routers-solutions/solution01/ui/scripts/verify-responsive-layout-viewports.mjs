@@ -45,7 +45,7 @@ async function runResponsiveLayoutCheck() {
     console.log(`Responsive layout report: ${reportPath}`);
     for (const result of results) {
       console.log(
-        `${result.viewport.name}: width=${result.viewport.width}, screenshot=${result.screenshotPath}, overflow=${result.audit.overflowCount}, overlaps=${result.audit.overlapCount}, comparisonRows=${result.audit.comparisonRowCount}, advancedOpen=${result.audit.advancedEvidenceOpen}`,
+        `${result.viewport.name}: width=${result.viewport.width}, screenshot=${result.screenshotPath}, overflow=${result.audit.overflowCount}, overlaps=${result.audit.overlapCount}, routeDecisions=${result.audit.routeDecisionCount}, hiddenLabLabels=${result.audit.hiddenLabLabelCount}`,
       );
     }
 
@@ -55,7 +55,8 @@ async function runResponsiveLayoutCheck() {
         result.audit.bodyScrollWidth > result.viewport.width + 1 ||
         result.audit.overflowCount > 0 ||
         result.audit.overlapCount > 0 ||
-        result.audit.comparisonRowCount !== 3 ||
+        result.audit.routeDecisionCount !== 1 ||
+        result.audit.hiddenLabLabelCount !== 0 ||
         result.audit.candidateCount !== 5,
     );
     if (failed) {
@@ -106,9 +107,14 @@ async function captureViewportProofs() {
       await page.waitForFunction(() =>
         document.body.textContent?.includes("Tool Router Evidence Console"),
       );
-      await page.getByRole("button", { name: /Run Routing Comparison/ }).click();
+      await page.getByLabel("OpenAI API key").fill("sk-layout-check");
+      await page.getByRole("button", { name: /Validate Key/ }).click();
+      await page.waitForFunction(() =>
+        document.body.textContent?.includes("Judge key accepted."),
+      );
+      await page.getByRole("button", { name: /Run Selected Route Decision/ }).click();
       await page.waitForFunction(
-        () => document.querySelectorAll(".query-comparison-table tbody tr").length === 3,
+        () => document.querySelectorAll('[data-testid="candidate-card"]').length === 5,
       );
       const screenshotPath = path.join(
         outputDirectoryPath,
@@ -220,10 +226,21 @@ async function auditViewportLayoutState(page) {
       overflowElements: overflowElements.slice(0, 20),
       overlapCount: overlaps.length,
       overlaps: overlaps.slice(0, 10),
-      comparisonRowCount: document.querySelectorAll(".query-comparison-table tbody tr").length,
-      advancedEvidenceOpen:
-        document.querySelector('[data-testid="advanced-evidence"]')?.hasAttribute("open") ??
-        false,
+      routeDecisionCount: [...document.querySelectorAll(".result-panel h2")].filter(
+        (heading) => heading.textContent?.includes("Route Decision"),
+      ).length,
+      hiddenLabLabelCount: [
+        "Run CPU Preview",
+        "Run Judged Route",
+        "Run Benchmark Eval",
+        "Compare All Modes",
+        "Download Evaluation Pack",
+        "Export Logs",
+        "Custom catalog JSON",
+        "Custom query JSON",
+        "Benchmark Health",
+        "Query-Level Router Comparison",
+      ].filter((label) => document.body.textContent?.includes(label)).length,
       candidateCount: document.querySelectorAll('[data-testid="candidate-card"]').length,
     };
   });

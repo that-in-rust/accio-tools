@@ -140,6 +140,7 @@ h3 {
 
 .workspace-meta,
 .metric-grid,
+.route-decision-grid,
 .candidate-card dl {
   display: grid;
   gap: 0.75rem;
@@ -152,6 +153,7 @@ h3 {
 
 .workspace-meta div,
 .metric-grid div,
+.route-decision-grid div,
 .decision-box,
 .candidate-card dl div {
   background: var(--surface-muted);
@@ -245,6 +247,11 @@ textarea {
 
 .metric-grid {
   grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.route-decision-grid {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  margin-bottom: 1rem;
 }
 
 .upload-grid {
@@ -483,6 +490,14 @@ textarea {
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
+.raw-tool-id {
+  color: var(--muted);
+  font-family: ui-monospace, "SFMono-Regular", Menlo, monospace;
+  font-size: 0.78rem;
+  margin-bottom: 0.35rem;
+  overflow-wrap: anywhere;
+}
+
 .decision-box {
   min-width: 190px;
 }
@@ -528,6 +543,7 @@ textarea {
 
   .session-controls,
   .metric-grid,
+  .route-decision-grid,
   .upload-grid,
   .mode-grid,
   .route-progress-strip,

@@ -14,12 +14,14 @@ describe("router workbench journey", () => {
     document.body.innerHTML = '<main id="app"></main>';
   });
 
-  it("shows readable benchmark queries and expected tool summary", async () => {
+  it("shows selected-router MVP surface without benchmark lab controls", async () => {
     const invoke = createRouterInvokeMock();
 
     renderRouterWorkbenchApp(invoke);
     await flushAsyncViewUpdates();
 
+    expect(readScreenTextContent()).toContain("Tool Router Evidence Console");
+    expect(readScreenTextContent()).toContain("Evaluate Inquiry");
     expect(getSelectedOptionText("benchmark-query-select")).toContain(
       "Find nearby calendar availability for a follow-up visit 0",
     );
@@ -28,53 +30,43 @@ describe("router workbench journey", () => {
     );
     expect(readScreenTextContent()).toContain("Expected tool");
     expect(readScreenTextContent()).toContain("Search availability");
-  });
-
-  it("runs query-level comparison across all CPU modes", async () => {
-    const invoke = createRouterInvokeMock();
-
-    renderRouterWorkbenchApp(invoke);
-    await flushAsyncViewUpdates();
-    getButtonByLabelText("Run Routing Comparison").click();
-    await flushAsyncViewUpdates();
-
-    expect(invoke).toHaveBeenCalledWith("run_cpu_preview_only", {
-      request: expect.objectContaining({ router_mode: "lexical" }),
-    });
-    expect(invoke).toHaveBeenCalledWith("run_cpu_preview_only", {
-      request: expect.objectContaining({ router_mode: "schema_aware" }),
-    });
-    expect(invoke).toHaveBeenCalledWith("run_cpu_preview_only", {
-      request: expect.objectContaining({ router_mode: "hybrid" }),
-    });
-    expect(readScreenTextContent()).toContain("Query-Level Router Comparison");
     expect(readScreenTextContent()).toContain("Lexical BM25");
     expect(readScreenTextContent()).toContain("Schema-aware BM25");
     expect(readScreenTextContent()).toContain("Hybrid RRF");
-    expect(readScreenTextContent()).toContain("Expected in top five");
-    expect(readScreenTextContent()).toContain("Judge not run");
+    expect(getButtonByLabelText("Run Selected Route Decision").disabled).toBe(true);
+    expect(readScreenTextContent()).not.toContain("Run CPU Preview");
+    expect(readScreenTextContent()).not.toContain("Run Judged Route");
+    expect(readScreenTextContent()).not.toContain("Run Benchmark Eval");
+    expect(readScreenTextContent()).not.toContain("Compare All Modes");
+    expect(readScreenTextContent()).not.toContain("Download Evaluation Pack");
+    expect(readScreenTextContent()).not.toContain("Export Judged Route Evidence");
+    expect(readScreenTextContent()).not.toContain("Export Preview Route Evidence");
+    expect(readScreenTextContent()).not.toContain("Export Logs");
+    expect(readScreenTextContent()).not.toContain("Custom catalog JSON");
+    expect(readScreenTextContent()).not.toContain("Custom query JSON");
+    expect(readScreenTextContent()).not.toContain("Benchmark Health");
+    expect(readScreenTextContent()).not.toContain("Query-Level Router Comparison");
   });
 
-  it("keeps benchmark lab controls behind advanced evidence", async () => {
+  it("requires judge readiness before final route decision", async () => {
     const invoke = createRouterInvokeMock();
 
     renderRouterWorkbenchApp(invoke);
     await flushAsyncViewUpdates();
+    vi.mocked(invoke).mockClear();
 
-    const primaryActions = document.querySelector(".action-panel")?.textContent ?? "";
-    expect(primaryActions).toContain("Run Routing Comparison");
-    expect(primaryActions).not.toContain("Run Benchmark Eval");
-    expect(primaryActions).not.toContain("Compare All Modes");
-    expect(primaryActions).not.toContain("Export Logs");
+    expect(getButtonByLabelText("Run Selected Route Decision").disabled).toBe(true);
+    expect(readScreenTextContent()).toContain(
+      "Validate a judge key to run the final route decision.",
+    );
+    getButtonByLabelText("Run Selected Route Decision").click();
+    await flushAsyncViewUpdates();
 
-    const advanced = document.querySelector("details[data-testid='advanced-evidence']");
-    expect(advanced?.hasAttribute("open")).toBe(false);
-    expect(advanced?.textContent).toContain("Run Benchmark Eval");
-    expect(advanced?.textContent).toContain("Compare All Modes");
-    expect(advanced?.textContent).toContain("Export Logs");
+    expect(getCommandCallsByName(invoke, "run_cpu_preview_only")).toHaveLength(0);
+    expect(getCommandCallsByName(invoke, "route_tools_for_query")).toHaveLength(0);
   });
 
-  it("shows judge rescued verdict when judge chooses expected top-five tool", async () => {
+  it("runs one selected CPU router through judged route", async () => {
     const invoke = createRouterInvokeMock();
 
     renderRouterWorkbenchApp(invoke);
@@ -85,39 +77,32 @@ describe("router workbench journey", () => {
     await flushAsyncViewUpdates();
     getButtonByLabelText("Validate Key").click();
     await flushAsyncViewUpdates();
-    getButtonByLabelText("Run Routing Comparison").click();
+    vi.mocked(invoke).mockClear();
+    getButtonByLabelText("Hybrid RRF").click();
+    await flushAsyncViewUpdates();
+    getButtonByLabelText("Run Selected Route Decision").click();
     await flushAsyncViewUpdates();
 
-    expect(invoke).toHaveBeenCalledWith("route_tools_for_query", {
-      request: expect.objectContaining({ router_mode: "lexical" }),
+    const routeCalls = getCommandCallsByName(invoke, "route_tools_for_query");
+    expect(routeCalls).toHaveLength(1);
+    expect(routeCalls[0]?.[1]).toEqual({
+      request: expect.objectContaining({
+        query: "Find nearby calendar availability for a follow-up visit 0",
+        router_mode: "hybrid",
+        api_key: "sk-router-test",
+      }),
     });
+    expect(getCommandCallsByName(invoke, "run_cpu_preview_only")).toHaveLength(0);
+    expect(readScreenTextContent()).toContain("Route Decision");
+    expect(readScreenTextContent()).toContain("Hybrid RRF");
     expect(readScreenTextContent()).toContain("Judge rescued");
     expect(readScreenTextContent()).toContain("rank 2");
+    expect(readScreenTextContent()).toContain("Search availability");
+    expect(document.querySelectorAll('[data-testid="candidate-card"]')).toHaveLength(5);
+    expect(getProgressStatusByLabel("Judge review")).toBe("complete");
   });
 
-  it("loads benchmark query picker and training pack counts", async () => {
-    const invoke = createRouterInvokeMock();
-
-    renderRouterWorkbenchApp(invoke);
-    await flushAsyncViewUpdates();
-
-    expect(readScreenTextContent()).toContain("Tool Router Evidence Console");
-    expect(readScreenTextContent()).toContain("Evaluate Inquiry");
-    expect(readScreenTextContent()).toContain("947");
-    expect(readScreenTextContent()).toContain("50");
-    expect(readScreenTextContent()).toContain("sources");
-    expect(readScreenTextContent()).toContain("schemas");
-    expect(readScreenTextContent()).toContain("unique ids");
-    expect(readScreenTextContent()).toContain("Benchmark Query");
-    expect(readScreenTextContent()).toContain("Custom Query");
-    expect(readScreenTextContent()).toContain("Search benchmark queries");
-    expect(getButtonByLabelText("Run CPU Preview").disabled).toBe(false);
-    expect(getButtonByLabelText("Run Judged Route").disabled).toBe(true);
-    expect(getButtonByLabelText("Export Judged Route Evidence").disabled).toBe(true);
-    expect(getButtonByLabelText("Export Preview Route Evidence").disabled).toBe(true);
-  });
-
-  it("filters bundled benchmark queries before routing", async () => {
+  it("filters bundled benchmark queries before selected judged route", async () => {
     const invoke = createRouterInvokeMock();
 
     renderRouterWorkbenchApp(invoke);
@@ -126,66 +111,27 @@ describe("router workbench journey", () => {
     searchInput.value = "visit 14";
     searchInput.dispatchEvent(new Event("input", { bubbles: true }));
     await flushAsyncViewUpdates();
-    getButtonByLabelText("Run CPU Preview").click();
+    const keyInput = getInputByLabelText("OpenAI API key");
+    keyInput.value = "sk-router-test";
+    keyInput.dispatchEvent(new Event("input", { bubbles: true }));
+    await flushAsyncViewUpdates();
+    getButtonByLabelText("Validate Key").click();
+    await flushAsyncViewUpdates();
+    vi.mocked(invoke).mockClear();
+    getButtonByLabelText("Run Selected Route Decision").click();
     await flushAsyncViewUpdates();
 
     expect(readScreenTextContent()).toContain(
       "Find nearby calendar availability for a follow-up visit 14 - Search availability (query-14)",
     );
-    expect(invoke).toHaveBeenCalledWith("run_cpu_preview_only", {
+    expect(invoke).toHaveBeenCalledWith("route_tools_for_query", {
       request: expect.objectContaining({
         query: "Find nearby calendar availability for a follow-up visit 14",
       }),
     });
   });
 
-  it("runs CPU preview with selected benchmark query and router mode", async () => {
-    const invoke = createRouterInvokeMock();
-
-    renderRouterWorkbenchApp(invoke);
-    await flushAsyncViewUpdates();
-    getButtonByLabelText("Hybrid RRF").click();
-    getButtonByLabelText("Run CPU Preview").click();
-    await flushAsyncViewUpdates();
-
-    expect(invoke).toHaveBeenCalledWith("run_cpu_preview_only", {
-      request: expect.objectContaining({
-        query: "Find nearby calendar availability for a follow-up visit 0",
-        router_mode: "hybrid",
-        api_key: null,
-      }),
-    });
-    expect(readScreenTextContent()).toContain("cpu_only_debug_preview");
-    expect(readScreenTextContent()).toContain("calendar.search_availability");
-    expect(readScreenTextContent()).toContain("CPU preview returned top five candidates.");
-    expect(readScreenTextContent()).toContain("run_cpu_preview_only");
-    expect(document.querySelectorAll('[data-testid="candidate-card"]')).toHaveLength(5);
-    expect(getProgressStatusByLabel("Judge review")).toBe("skipped");
-    expect(getButtonByLabelText("Export Judged Route Evidence").disabled).toBe(true);
-    expect(getButtonByLabelText("Export Preview Route Evidence").disabled).toBe(false);
-  });
-
-  it("ignores unsupported router mode values", async () => {
-    const invoke = createRouterInvokeMock();
-
-    renderRouterWorkbenchApp(invoke);
-    await flushAsyncViewUpdates();
-    const hybridButton = getButtonByLabelText("Hybrid RRF");
-    hybridButton.dataset.routerMode = "graph-path";
-    hybridButton.click();
-    await flushAsyncViewUpdates();
-    getButtonByLabelText("Run CPU Preview").click();
-    await flushAsyncViewUpdates();
-
-    expect(invoke).toHaveBeenCalledWith("run_cpu_preview_only", {
-      request: expect.objectContaining({
-        router_mode: "lexical",
-      }),
-    });
-    expect(readScreenTextContent()).toContain("Ignored unsupported router mode value.");
-  });
-
-  it("validates judge key and runs judged route", async () => {
+  it("routes a custom free-text query with no benchmark label", async () => {
     const invoke = createRouterInvokeMock();
 
     renderRouterWorkbenchApp(invoke);
@@ -196,222 +142,52 @@ describe("router workbench journey", () => {
     await flushAsyncViewUpdates();
     getButtonByLabelText("Validate Key").click();
     await flushAsyncViewUpdates();
-    getButtonByLabelText("Run Judged Route").click();
-    await flushAsyncViewUpdates();
-
-    expect(getButtonByLabelText("Validate Again").disabled).toBe(false);
-    expect(invoke).toHaveBeenCalledWith("validate_judge_api_key", {
-      apiKey: "sk-router-test",
-    });
-    expect(invoke).toHaveBeenCalledWith("route_tools_for_query", {
-      request: expect.objectContaining({
-        api_key: "sk-router-test",
-        router_mode: "lexical",
-      }),
-    });
-    expect(readScreenTextContent()).toContain("judged_route");
-    expect(readScreenTextContent()).toContain("mock judge selected the strongest candidate");
-    expect(getProgressStatusByLabel("Catalog validation")).toBe("complete");
-    expect(getProgressStatusByLabel("CPU ranking")).toBe("complete");
-    expect(getProgressStatusByLabel("Judge review")).toBe("complete");
-    expect(getProgressStatusByLabel("Evidence compilation")).toBe("complete");
-    expect(document.querySelectorAll('[data-testid="candidate-card"]')).toHaveLength(5);
-    expect(getButtonByLabelText("Export Judged Route Evidence").disabled).toBe(false);
-  });
-
-  it("routes a custom query instead of benchmark text", async () => {
-    const invoke = createRouterInvokeMock();
-
-    renderRouterWorkbenchApp(invoke);
-    await flushAsyncViewUpdates();
     getButtonByLabelText("Custom Query").click();
     await flushAsyncViewUpdates();
     const customInput = getTextAreaByLabelText("Custom inquiry");
     customInput.value = "Send a Slack message to the incident channel";
     customInput.dispatchEvent(new Event("input", { bubbles: true }));
     await flushAsyncViewUpdates();
-    getButtonByLabelText("Run CPU Preview").click();
+    getButtonByLabelText("Schema-aware BM25").click();
+    await flushAsyncViewUpdates();
+    vi.mocked(invoke).mockClear();
+    getButtonByLabelText("Run Selected Route Decision").click();
     await flushAsyncViewUpdates();
 
-    expect(invoke).toHaveBeenCalledWith("run_cpu_preview_only", {
+    expect(invoke).toHaveBeenCalledWith("route_tools_for_query", {
       request: expect.objectContaining({
         query: "Send a Slack message to the incident channel",
+        router_mode: "schema_aware",
       }),
     });
+    expect(readScreenTextContent()).toContain("No benchmark label");
   });
 
-  it("routes with uploaded catalog and labeled query files", async () => {
+  it("ignores unsupported router mode values before selected route", async () => {
     const invoke = createRouterInvokeMock();
 
     renderRouterWorkbenchApp(invoke);
     await flushAsyncViewUpdates();
-    await uploadJsonFileByLabel("Custom catalog JSON", [
-      {
-        id: "custom.slack_post",
-        name: "post_message",
-        description: "Send a message to a channel",
-        input_schema: {
-          type: "object",
-          properties: {
-            channel: { type: "string" },
-            message: { type: "string" },
-          },
-        },
-        tags: ["message"],
-      },
-    ]);
+    const keyInput = getInputByLabelText("OpenAI API key");
+    keyInput.value = "sk-router-test";
+    keyInput.dispatchEvent(new Event("input", { bubbles: true }));
     await flushAsyncViewUpdates();
-    await uploadJsonFileByLabel("Custom query JSON", [
-      {
-        id: "custom-query-01",
-        query: "Send a Slack message to the incident channel",
-        required_tool_ids: ["custom.slack_post"],
-        should_route: true,
-        graded_relevance: [{ tool_id: "custom.slack_post", relevance: 3 }],
-        source_expected_tools: ["custom.slack_post"],
-        failure_modes: ["confuse chat read with chat write"],
-      },
-    ]);
+    getButtonByLabelText("Validate Key").click();
     await flushAsyncViewUpdates();
-    getButtonByLabelText("Run CPU Preview").click();
+    const hybridButton = getButtonByLabelText("Hybrid RRF");
+    hybridButton.dataset.routerMode = "graph-path";
+    hybridButton.click();
     await flushAsyncViewUpdates();
-    getButtonByLabelText("Run Benchmark Eval").click();
+    vi.mocked(invoke).mockClear();
+    getButtonByLabelText("Run Selected Route Decision").click();
     await flushAsyncViewUpdates();
 
-    expect(readScreenTextContent()).toContain("custom-query-01");
-    expect(invoke).toHaveBeenCalledWith("run_cpu_preview_only", {
+    expect(invoke).toHaveBeenCalledWith("route_tools_for_query", {
       request: expect.objectContaining({
-        query: "Send a Slack message to the incident channel",
-        catalog_tools: [
-          expect.objectContaining({
-            id: "custom.slack_post",
-            name: "post_message",
-          }),
-        ],
-      }),
-    });
-    expect(invoke).toHaveBeenCalledWith("evaluate_routing_subset_metrics", {
-      request: expect.objectContaining({
-        catalog_tools: [
-          expect.objectContaining({
-            id: "custom.slack_post",
-            name: "post_message",
-          }),
-        ],
-        query_records: [
-          expect.objectContaining({
-            id: "custom-query-01",
-            required_tool_ids: ["custom.slack_post"],
-          }),
-        ],
-      }),
-    });
-  });
-
-  it("runs metrics and downloads evidence artifacts", async () => {
-    const downloads: Array<{ filename: string; content: string }> = [];
-    const invoke = createRouterInvokeMock();
-
-    renderRouterWorkbenchApp(invoke, (filename, content) => {
-      downloads.push({ filename, content });
-    });
-    await flushAsyncViewUpdates();
-    getButtonByLabelText("Run Benchmark Eval").click();
-    await flushAsyncViewUpdates();
-    getButtonByLabelText("Run CPU Preview").click();
-    await flushAsyncViewUpdates();
-    getButtonByLabelText("Export Preview Route Evidence").click();
-    await flushAsyncViewUpdates();
-    getButtonByLabelText("Export Logs").click();
-    await flushAsyncViewUpdates();
-    getButtonByLabelText("Download Evaluation Pack").click();
-    await flushAsyncViewUpdates();
-
-    expect(readScreenTextContent()).toContain("0.6493");
-    expect(readScreenTextContent()).toContain("Recall@1");
-    expect(readScreenTextContent()).toContain("Recall@3");
-    expect(readScreenTextContent()).toContain("Recall@10");
-    expect(readScreenTextContent()).toContain("Abstention");
-    expect(readScreenTextContent()).toContain("Judged route");
-    expect(readScreenTextContent()).toContain("Failure bucket");
-    expect(readScreenTextContent()).toContain("Failure buckets");
-    expect(readScreenTextContent()).toContain("wrong_llm_top1");
-    expect(readScreenTextContent()).toContain("export_route_evidence_report");
-    expect(invoke).toHaveBeenCalledWith("evaluate_routing_subset_metrics", {
-      request: {
-        dataset_path: null,
-        catalog_tools: null,
-        query_records: null,
         router_mode: "lexical",
-        max_k: 10,
-        threshold: 2,
-      },
-    });
-    expect(invoke).toHaveBeenCalledWith("export_route_evidence_report", {
-      payload: expect.objectContaining({
-        route_request: expect.objectContaining({
-          query: "Find nearby calendar availability for a follow-up visit 0",
-          router_mode: "lexical",
-          api_key: null,
-        }),
-        catalog_stats: expect.objectContaining({
-          tool_count: 947,
-          query_count: 50,
-          route_required_count: 46,
-          abstention_count: 4,
-        }),
-        benchmark_gold_match: expect.objectContaining({
-          query_id: "query-00",
-          selected_tool_id: null,
-          gold_match_status: "unjudged_cpu_preview",
-          failure_bucket: "unjudged_cpu_preview",
-        }),
-        metrics_report: expect.objectContaining({
-          token_reduction_estimate: 0.9894,
-        }),
       }),
     });
-    expect(downloads).toEqual(
-      expect.arrayContaining([
-        {
-          filename: "tool-router-evidence-report.md",
-          content: "# Tool Router Evidence Report",
-        },
-        {
-          filename: "tool-router-diagnostic-log.txt",
-          content: "# Tool Router Diagnostic Log",
-        },
-        expect.objectContaining({ filename: "tools.json" }),
-        expect.objectContaining({ filename: "queries.json" }),
-        expect.objectContaining({ filename: "manifest.json" }),
-      ]),
-    );
-  });
-
-  it("compares all router modes in benchmark health panel", async () => {
-    const invoke = createRouterInvokeMock();
-
-    renderRouterWorkbenchApp(invoke);
-    await flushAsyncViewUpdates();
-    getButtonByLabelText("Compare All Modes").click();
-    await flushAsyncViewUpdates();
-
-    expect(invoke).toHaveBeenCalledWith("compare_routing_modes_metrics", {
-      request: {
-        dataset_path: null,
-        catalog_tools: null,
-        query_records: null,
-        router_mode: "lexical",
-        max_k: 10,
-        threshold: 2,
-      },
-    });
-    expect(readScreenTextContent()).toContain("Mode Comparison");
-    expect(readScreenTextContent()).toContain("Lexical BM25");
-    expect(readScreenTextContent()).toContain("Schema-aware BM25");
-    expect(readScreenTextContent()).toContain("Hybrid RRF");
-    expect(readScreenTextContent()).toContain("0.6493");
-    expect(readScreenTextContent()).toContain("0.6275");
+    expect(readScreenTextContent()).toContain("Ignored unsupported router mode value.");
   });
 
   it("keeps router UI names and removes stale PIE copy", () => {
@@ -630,22 +406,6 @@ function getProgressStatusByLabel(label: string): string | undefined {
     ?.getAttribute("data-progress-status") ?? undefined;
 }
 
-async function uploadJsonFileByLabel(label: string, value: unknown) {
-  const input = getInputByLabelText(label);
-  const file = new File([JSON.stringify(value)], `${label}.json`, {
-    type: "application/json",
-  });
-  Object.defineProperty(input, "files", {
-    configurable: true,
-    value: [file],
-  });
-  input.dispatchEvent(new Event("change", { bubbles: true }));
-  for (let index = 0; index < 4; index += 1) {
-    await new Promise((resolve) => setTimeout(resolve, 0));
-  }
-  await flushAsyncViewUpdates();
-}
-
 function getTextAreaByLabelText(label: string): HTMLTextAreaElement {
   const element = Array.from(document.querySelectorAll("label")).find(
     (candidate) => candidate.textContent?.includes(label),
@@ -653,4 +413,8 @@ function getTextAreaByLabelText(label: string): HTMLTextAreaElement {
   const textarea = element?.querySelector("textarea");
   if (!textarea) throw new Error(`Missing textarea ${label}`);
   return textarea;
+}
+
+function getCommandCallsByName(invoke: InvokeFunction, commandName: string) {
+  return vi.mocked(invoke).mock.calls.filter(([command]) => command === commandName);
 }

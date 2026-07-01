@@ -2,8 +2,8 @@
 
 - Task: Implement Spec 02 query-level router MVP
 - Created: 2026-07-01 01:28:30Z
-- Updated: 2026-07-01 01:46:01Z
-- Current Phase: Refactor
+- Updated: 2026-07-01 02:12:14Z
+- Current Phase: Red
 - Status: active
 
 ## Sessions
@@ -133,3 +133,32 @@ Complete Spec 02 verification and prepare handoff
 
 #### Performance/Metrics:
 - Final responsive report: mobile and desktop overflow=0 overlaps=0 comparisonRows=3 advancedOpen=false
+
+### Session: 2026-07-01 02:12:14Z
+
+#### Current Phase: Red
+
+#### Tests Written:
+- shows selected-router MVP surface without benchmark lab controls: failing - missing Run Selected Route Decision button
+- requires judge readiness before final route decision: failing - missing Run Selected Route Decision button
+- runs one selected CPU router through judged route: failing - missing Run Selected Route Decision button
+- filters bundled benchmark queries before selected judged route: failing - missing Run Selected Route Decision button
+- routes a custom free-text query with no benchmark label: failing - missing Run Selected Route Decision button
+- ignores unsupported router mode values before selected route: failing - missing Run Selected Route Decision button
+
+#### Implementation Progress:
+- ui/src/app.test.ts: replaced lab-console tests with selected-router Spec 02 contract tests
+
+#### Current Focus:
+Spec 02 selected-router MVP UI tests
+
+#### Next Steps:
+- Implement Run Selected Route Decision using only selected router mode and remove visible lab/upload controls
+- Render Route Decision panel with verdict summary and candidate evidence
+- Update responsive verifier for one selected route result
+
+#### Context Notes:
+- Old UI still exposes Run Routing Comparison, advanced benchmark controls, and JSON upload controls; tests now encode no visible CPU preview/final answer without judge key.
+
+#### Performance/Metrics:
+- npm ui test: 6 failed, 1 passed; failures are expected red failures around missing Run Selected Route Decision
