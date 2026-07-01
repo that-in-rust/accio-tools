@@ -1,5 +1,9 @@
 # accio-tools
 
+## Preview
+
+![Tool Router Evidence Console preview](A03-release-preview-assets/S01-router-preview-screenshot.png)
+
 ## Ten-Line Core Note
 
 1. This repo contains the Tool Router Evidence Console for the tool-routing take-home.
