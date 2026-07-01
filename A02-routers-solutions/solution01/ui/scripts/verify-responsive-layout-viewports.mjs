@@ -45,7 +45,7 @@ async function runResponsiveLayoutCheck() {
     console.log(`Responsive layout report: ${reportPath}`);
     for (const result of results) {
       console.log(
-        `${result.viewport.name}: width=${result.viewport.width}, screenshot=${result.screenshotPath}, overflow=${result.audit.overflowCount}, overlaps=${result.audit.overlapCount}, routeDecisions=${result.audit.routeDecisionCount}, hiddenLabLabels=${result.audit.hiddenLabLabelCount}`,
+        `${result.viewport.name}: width=${result.viewport.width}, screenshot=${result.screenshotPath}, overflow=${result.audit.overflowCount}, overlaps=${result.audit.overlapCount}, routeDecisions=${result.audit.routeDecisionCount}, flowStages=${result.audit.routeFlowStageCount}, modelLabels=${result.audit.judgeModelLabelCount}, provenance=${result.audit.benchmarkSourceTextCount}, hiddenLabLabels=${result.audit.hiddenLabLabelCount}`,
       );
     }
 
@@ -56,6 +56,9 @@ async function runResponsiveLayoutCheck() {
         result.audit.overflowCount > 0 ||
         result.audit.overlapCount > 0 ||
         result.audit.routeDecisionCount !== 1 ||
+        result.audit.routeFlowStageCount !== 4 ||
+        result.audit.judgeModelLabelCount !== 1 ||
+        result.audit.benchmarkSourceTextCount !== 1 ||
         result.audit.hiddenLabLabelCount !== 0 ||
         result.audit.candidateCount !== 5,
     );
@@ -229,6 +232,15 @@ async function auditViewportLayoutState(page) {
       routeDecisionCount: [...document.querySelectorAll(".result-panel h2")].filter(
         (heading) => heading.textContent?.includes("Route Decision"),
       ).length,
+      routeFlowStageCount: document.querySelectorAll(".route-flow-stage").length,
+      judgeModelLabelCount: [...document.querySelectorAll(".judge-model-pill")].filter(
+        (label) => label.textContent?.includes("Judge model:"),
+      ).length,
+      benchmarkSourceTextCount: document.body.textContent?.includes(
+        "Benchmark source: curated local subset",
+      )
+        ? 1
+        : 0,
       hiddenLabLabelCount: [
         "Run CPU Preview",
         "Run Judged Route",

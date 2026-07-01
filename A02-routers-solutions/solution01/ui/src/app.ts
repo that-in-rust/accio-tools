@@ -114,6 +114,18 @@ const routerModeSequenceList: RouterModeNameData[] = [
   "hybrid",
 ];
 
+const benchmarkSourceNamesList = [
+  "VOTR",
+  "contextweaver",
+  "graph-tool-call",
+  "mcpproxy-go",
+  "LiveMCPBench",
+  "mcp-bench",
+];
+
+const benchmarkSourcePathText =
+  "A00-raw-research/benchmarks/tool-routing-subset";
+
 const defaultReadinessData: RouterAppReadinessData = {
   judge_key_ready: false,
   route_preview_enabled: true,
@@ -1287,6 +1299,7 @@ function renderRouterWorkbenchView(state: RouterWorkbenchStateData): string {
           </dl>
         </header>
         ${renderJudgeKeyCard(state)}
+        ${renderRouterFlowExplainer(state)}
         ${renderEvaluationPackCard(state)}
         ${renderQuerySourcePanel(state)}
         ${renderExpectedToolSummary(state)}
@@ -1314,7 +1327,7 @@ function renderJudgeKeyCard(state: RouterWorkbenchStateData): string {
           <h2>Judge Session</h2>
           <p>A final route decision unlocks after validation.</p>
         </div>
-        <span class="status-pill">${escapeHtmlText(state.readiness.model_label)}</span>
+        ${renderJudgeModelLabel(state)}
       </div>
       <div class="session-controls">
         <label class="field-stack" for="judge-key-input">
@@ -1326,6 +1339,108 @@ function renderJudgeKeyCard(state: RouterWorkbenchStateData): string {
       <p class="privacy-note">${escapeHtmlText(state.readiness.readiness_message)}</p>
     </section>
   `;
+}
+
+function renderJudgeModelLabel(state: RouterWorkbenchStateData): string {
+  return `<span class="status-pill judge-model-pill">${escapeHtmlText(
+    formatJudgeModelText(state.readiness.model_label),
+  )}</span>`;
+}
+
+function formatJudgeModelText(modelLabel: string): string {
+  return `Judge model: ${modelLabel || "unknown"}`;
+}
+
+function renderRouterFlowExplainer(state: RouterWorkbenchStateData): string {
+  return `
+    <section class="flow-panel" aria-label="Router decision flow">
+      <div class="section-title-row">
+        <div>
+          <h2>Routing Flow</h2>
+          <p>One selected CPU router creates the shortlist; the judge chooses the final route.</p>
+        </div>
+      </div>
+      ${renderFlowStageCards(createFlowStageItems(state))}
+      ${renderBenchmarkSourceBadge(state)}
+    </section>
+  `;
+}
+
+function createFlowStageItems(state: RouterWorkbenchStateData) {
+  return [
+    {
+      testId: "router-flow-stage-cpu",
+      label: "Selected CPU router",
+      value: routerModeLabelsData[state.routerMode],
+    },
+    {
+      testId: "router-flow-stage-shortlist",
+      label: "Top five shortlist",
+      value: "CPU returns five ranked tool candidates.",
+    },
+    {
+      testId: "router-flow-stage-judge",
+      label: "LLM judge chooses top 1 or abstains",
+      value: formatJudgeModelText(state.readiness.model_label),
+    },
+    {
+      testId: "router-flow-stage-benchmark",
+      label: "Compare against benchmark gold",
+      value: renderBenchmarkGoldStep(state),
+    },
+  ];
+}
+
+function renderFlowStageCards(
+  stages: ReturnType<typeof createFlowStageItems>,
+): string {
+  return `
+    <ol class="route-flow-grid">
+      ${stages
+        .map(
+          (stage, index) => `
+            <li class="route-flow-stage" data-testid="${escapeAttributeText(stage.testId)}">
+              <span class="flow-step-index">${index + 1}</span>
+              <div>
+                <strong>${escapeHtmlText(stage.label)}</strong>
+                <span>${escapeHtmlText(stage.value)}</span>
+              </div>
+            </li>
+          `,
+        )
+        .join("")}
+    </ol>
+  `;
+}
+
+function renderBenchmarkGoldStep(state: RouterWorkbenchStateData): string {
+  if (state.querySource === "custom") {
+    return "No benchmark label for custom query.";
+  }
+  const query = getSelectedQueryRecordData(state);
+  if (!query) {
+    return "Select a benchmark query.";
+  }
+  const expectedText = query.should_route
+    ? createToolDisplayName(query.required_tool_ids[0] ?? "unknown_tool", state.tools)
+    : "Abstain";
+  return `Expected: ${expectedText}`;
+}
+
+function renderBenchmarkSourceBadge(state: RouterWorkbenchStateData): string {
+  return `<p class="source-summary">${escapeHtmlText(
+    createBenchmarkSourceSummary(state),
+  )}</p>`;
+}
+
+function createBenchmarkSourceSummary(state: RouterWorkbenchStateData): string {
+  const catalogStats = createCatalogStatsSummary(state);
+  return [
+    "Benchmark source: curated local subset from OSS/reference routing corpora.",
+    `Primary sources: ${benchmarkSourceNamesList.join(", ")}.`,
+    `Pack: ${catalogStats.tool_count} tools, ${catalogStats.query_count} queries, ${catalogStats.route_required_count} route-required labels, ${catalogStats.abstention_count} abstention labels.`,
+    `Local path: ${benchmarkSourcePathText}.`,
+  ].join(" ");
 }
 
 function renderEvaluationPackCard(state: RouterWorkbenchStateData): string {

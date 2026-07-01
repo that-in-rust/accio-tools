@@ -48,6 +48,70 @@ describe("router workbench journey", () => {
     expect(readScreenTextContent()).not.toContain("Query-Level Router Comparison");
   });
 
+  it("shows judge model and route flow explainer", async () => {
+    renderRouterWorkbenchApp(createRouterInvokeMock());
+    await flushAsyncViewUpdates();
+
+    const screenText = readScreenTextContent();
+    expect(screenText).toContain("Judge model: mock-router-judge");
+    expect(screenText).toContain("Selected CPU router");
+    expect(screenText).toContain("Lexical BM25");
+    expect(screenText).toContain("Top five shortlist");
+    expect(screenText).toContain("LLM judge chooses top 1 or abstains");
+    expect(screenText).toContain("Compare against benchmark gold");
+    expect(screenText).toContain("Benchmark source: curated local subset");
+    expect(screenText).toContain("VOTR");
+    expect(screenText).toContain("contextweaver");
+    expect(screenText).toContain("graph-tool-call");
+    expect(screenText).toContain("mcpproxy-go");
+    expect(screenText).toContain("LiveMCPBench");
+    expect(screenText).toContain("mcp-bench");
+    expect(screenText).toContain(
+      "Pack: 947 tools, 50 queries, 46 route-required labels, 4 abstention labels.",
+    );
+  });
+
+  it("updates visible judge model after key validation", async () => {
+    const invoke = createRouterInvokeMock({
+      readiness: createReadyStateData("gpt-4.1-mini-router"),
+    });
+
+    renderRouterWorkbenchApp(invoke);
+    await flushAsyncViewUpdates();
+    expect(readScreenTextContent()).toContain("Judge model: mock-router-judge");
+    const keyInput = getInputByLabelText("OpenAI API key");
+    keyInput.value = "sk-router-test";
+    keyInput.dispatchEvent(new Event("input", { bubbles: true }));
+    await flushAsyncViewUpdates();
+    getButtonByLabelText("Validate Key").click();
+    await flushAsyncViewUpdates();
+
+    expect(readScreenTextContent()).toContain("Judge model: gpt-4.1-mini-router");
+  });
+
+  it("binds route flow explainer to the selected CPU router", async () => {
+    const invoke = createRouterInvokeMock();
+
+    renderRouterWorkbenchApp(invoke);
+    await flushAsyncViewUpdates();
+    getButtonByLabelText("Hybrid RRF").click();
+    await flushAsyncViewUpdates();
+
+    expect(getFlowStageTextByTestId("router-flow-stage-cpu")).toContain("Hybrid RRF");
+    expect(getCommandCallsByName(invoke, "compare_routing_modes_metrics")).toHaveLength(0);
+  });
+
+  it("switches benchmark comparison copy for custom query", async () => {
+    renderRouterWorkbenchApp(createRouterInvokeMock());
+    await flushAsyncViewUpdates();
+    getButtonByLabelText("Custom Query").click();
+    await flushAsyncViewUpdates();
+
+    expect(getFlowStageTextByTestId("router-flow-stage-benchmark")).toContain(
+      "No benchmark label",
+    );
+  });
+
   it("requires judge readiness before final route decision", async () => {
     const invoke = createRouterInvokeMock();
 
@@ -207,13 +271,19 @@ function renderRouterWorkbenchApp(
   });
 }
 
-function createRouterInvokeMock(): InvokeFunction {
+interface RouterInvokeMockOptionsData {
+  readiness?: RouterAppReadinessData;
+}
+
+function createRouterInvokeMock(
+  options: RouterInvokeMockOptionsData = {},
+): InvokeFunction {
   return vi.fn(async (command: string, args?: Record<string, unknown>) => {
     if (command === "download_evaluation_pack_files") {
       return createPackFilesData();
     }
     if (command === "validate_judge_api_key") {
-      return createReadyStateData();
+      return options.readiness ?? createReadyStateData();
     }
     if (command === "run_cpu_preview_only") {
       return createRouteResponseData("cpu_only_debug_preview", false);
@@ -270,12 +340,14 @@ function createPackFilesData(): EvaluationPackFileData[] {
   ];
 }
 
-function createReadyStateData(): RouterAppReadinessData {
+function createReadyStateData(
+  modelLabel = "mock-router-judge",
+): RouterAppReadinessData {
   return {
     judge_key_ready: true,
     route_preview_enabled: true,
     judged_route_enabled: true,
-    model_label: "mock-router-judge",
+    model_label: modelLabel,
     readiness_message: "Judge key accepted for local route execution.",
   };
 }
@@ -404,6 +476,12 @@ function getProgressStatusByLabel(label: string): string | undefined {
   return document
     .querySelector(`[data-progress-stage="${label}"]`)
     ?.getAttribute("data-progress-status") ?? undefined;
+}
+
+function getFlowStageTextByTestId(testId: string): string {
+  const element = document.querySelector(`[data-testid="${testId}"]`);
+  if (!element) throw new Error(`Missing flow stage ${testId}`);
+  return element.textContent ?? "";
 }
 
 function getTextAreaByLabelText(label: string): HTMLTextAreaElement {

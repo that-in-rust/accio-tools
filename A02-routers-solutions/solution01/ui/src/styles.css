@@ -81,6 +81,7 @@ h3 {
 
 .workspace-header,
 .session-card,
+.flow-panel,
 .pack-panel,
 .query-panel,
 .mode-panel,
@@ -194,6 +195,11 @@ dd {
   padding: 0.4rem 0.65rem;
 }
 
+.judge-model-pill {
+  overflow-wrap: anywhere;
+  text-align: right;
+}
+
 .session-controls {
   align-items: end;
   display: grid;
@@ -243,6 +249,61 @@ textarea {
 .secondary-action:hover:not(:disabled) {
   background: #e5f4f1;
   color: var(--accent-strong);
+}
+
+.route-flow-grid {
+  display: grid;
+  gap: 0.65rem;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.route-flow-stage {
+  align-items: start;
+  background: var(--surface-muted);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 0.55rem;
+  grid-template-columns: 34px minmax(0, 1fr);
+  min-height: 106px;
+  padding: 0.7rem;
+}
+
+.flow-step-index {
+  align-items: center;
+  background: var(--ink);
+  border-radius: 8px;
+  color: white;
+  display: grid;
+  font-weight: 700;
+  height: 30px;
+  justify-items: center;
+  width: 30px;
+}
+
+.route-flow-stage strong,
+.route-flow-stage span {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.route-flow-stage strong {
+  margin-bottom: 0.25rem;
+}
+
+.route-flow-stage div > span {
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.source-summary {
+  color: var(--muted);
+  font-size: 0.86rem;
+  margin: 0.85rem 0 0;
+  overflow-wrap: anywhere;
 }
 
 .metric-grid {
@@ -546,6 +607,7 @@ textarea {
   .route-decision-grid,
   .upload-grid,
   .mode-grid,
+  .route-flow-grid,
   .route-progress-strip,
   .candidate-card,
   .candidate-card dl {
