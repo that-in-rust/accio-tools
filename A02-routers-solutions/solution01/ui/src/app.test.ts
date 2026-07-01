@@ -14,6 +14,87 @@ describe("router workbench journey", () => {
     document.body.innerHTML = '<main id="app"></main>';
   });
 
+  it("shows readable benchmark queries and expected tool summary", async () => {
+    const invoke = createRouterInvokeMock();
+
+    renderRouterWorkbenchApp(invoke);
+    await flushAsyncViewUpdates();
+
+    expect(getSelectedOptionText("benchmark-query-select")).toContain(
+      "Find nearby calendar availability for a follow-up visit 0",
+    );
+    expect(getSelectedOptionText("benchmark-query-select")).not.toContain(
+      "query-00 -> calendar.search_availability",
+    );
+    expect(readScreenTextContent()).toContain("Expected tool");
+    expect(readScreenTextContent()).toContain("Search availability");
+  });
+
+  it("runs query-level comparison across all CPU modes", async () => {
+    const invoke = createRouterInvokeMock();
+
+    renderRouterWorkbenchApp(invoke);
+    await flushAsyncViewUpdates();
+    getButtonByLabelText("Run Routing Comparison").click();
+    await flushAsyncViewUpdates();
+
+    expect(invoke).toHaveBeenCalledWith("run_cpu_preview_only", {
+      request: expect.objectContaining({ router_mode: "lexical" }),
+    });
+    expect(invoke).toHaveBeenCalledWith("run_cpu_preview_only", {
+      request: expect.objectContaining({ router_mode: "schema_aware" }),
+    });
+    expect(invoke).toHaveBeenCalledWith("run_cpu_preview_only", {
+      request: expect.objectContaining({ router_mode: "hybrid" }),
+    });
+    expect(readScreenTextContent()).toContain("Query-Level Router Comparison");
+    expect(readScreenTextContent()).toContain("Lexical BM25");
+    expect(readScreenTextContent()).toContain("Schema-aware BM25");
+    expect(readScreenTextContent()).toContain("Hybrid RRF");
+    expect(readScreenTextContent()).toContain("Expected in top five");
+    expect(readScreenTextContent()).toContain("Judge not run");
+  });
+
+  it("keeps benchmark lab controls behind advanced evidence", async () => {
+    const invoke = createRouterInvokeMock();
+
+    renderRouterWorkbenchApp(invoke);
+    await flushAsyncViewUpdates();
+
+    const primaryActions = document.querySelector(".action-panel")?.textContent ?? "";
+    expect(primaryActions).toContain("Run Routing Comparison");
+    expect(primaryActions).not.toContain("Run Benchmark Eval");
+    expect(primaryActions).not.toContain("Compare All Modes");
+    expect(primaryActions).not.toContain("Export Logs");
+
+    const advanced = document.querySelector("details[data-testid='advanced-evidence']");
+    expect(advanced?.hasAttribute("open")).toBe(false);
+    expect(advanced?.textContent).toContain("Run Benchmark Eval");
+    expect(advanced?.textContent).toContain("Compare All Modes");
+    expect(advanced?.textContent).toContain("Export Logs");
+  });
+
+  it("shows judge rescued verdict when judge chooses expected top-five tool", async () => {
+    const invoke = createRouterInvokeMock();
+
+    renderRouterWorkbenchApp(invoke);
+    await flushAsyncViewUpdates();
+    const keyInput = getInputByLabelText("OpenAI API key");
+    keyInput.value = "sk-router-test";
+    keyInput.dispatchEvent(new Event("input", { bubbles: true }));
+    await flushAsyncViewUpdates();
+    getButtonByLabelText("Validate Key").click();
+    await flushAsyncViewUpdates();
+    getButtonByLabelText("Run Routing Comparison").click();
+    await flushAsyncViewUpdates();
+
+    expect(invoke).toHaveBeenCalledWith("route_tools_for_query", {
+      request: expect.objectContaining({ router_mode: "lexical" }),
+    });
+    expect(readScreenTextContent()).toContain("Judge rescued");
+    expect(readScreenTextContent()).toContain("rank 2");
+  });
+
   it("loads benchmark query picker and training pack counts", async () => {
     const invoke = createRouterInvokeMock();
 
@@ -48,7 +129,9 @@ describe("router workbench journey", () => {
     getButtonByLabelText("Run CPU Preview").click();
     await flushAsyncViewUpdates();
 
-    expect(readScreenTextContent()).toContain("query-14 -> calendar.search_availability");
+    expect(readScreenTextContent()).toContain(
+      "Find nearby calendar availability for a follow-up visit 14 - Search availability (query-14)",
+    );
     expect(invoke).toHaveBeenCalledWith("run_cpu_preview_only", {
       request: expect.objectContaining({
         query: "Find nearby calendar availability for a follow-up visit 14",
@@ -428,7 +511,7 @@ function createRouteResponseData(
   return {
     route_label: routeLabel,
     candidates: Array.from({ length: 5 }, (_, index) =>
-      createCandidateCardData(index),
+      createCandidateCardData(index, judged),
     ),
     judge_decision: judged
       ? {
@@ -441,14 +524,23 @@ function createRouteResponseData(
   };
 }
 
-function createCandidateCardData(index = 0): CandidateEvidenceCardData {
+function createCandidateCardData(
+  index = 0,
+  judged = false,
+): CandidateEvidenceCardData {
+  const toolId = judged
+    ? index === 0
+      ? "calendar.nearby_booking"
+      : index === 1
+        ? "calendar.search_availability"
+        : `calendar.candidate_${index}`
+    : index === 0
+      ? "calendar.search_availability"
+      : `calendar.candidate_${index}`;
   return {
     rank: index + 1,
     score: 12.3456 - index,
-    tool_id:
-      index === 0
-        ? "calendar.search_availability"
-        : `calendar.candidate_${index}`,
+    tool_id: toolId,
     matched_terms: ["calendar", "availability"],
     matched_fields: ["name", "description"],
     capability_match: ["calendar"],
@@ -524,6 +616,12 @@ function getInputByLabelText(label: string): HTMLInputElement {
   const input = element?.querySelector("input");
   if (!input) throw new Error(`Missing input ${label}`);
   return input;
+}
+
+function getSelectedOptionText(selectId: string): string {
+  const select = document.querySelector<HTMLSelectElement>(`#${selectId}`);
+  if (!select) throw new Error(`Missing select ${selectId}`);
+  return select.selectedOptions[0]?.textContent ?? "";
 }
 
 function getProgressStatusByLabel(label: string): string | undefined {

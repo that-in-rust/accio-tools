@@ -37,10 +37,37 @@ type RouteProgressStageStatusData =
   | "complete"
   | "skipped"
   | "failed";
+type QueryRouteVerdictKindData =
+  | "pass"
+  | "judge_rescued"
+  | "cpu_top_five_miss"
+  | "wrong_judge_pick"
+  | "correct_abstain"
+  | "abstention_miss"
+  | "judge_not_run"
+  | "no_benchmark_label";
 
 interface RouteProgressStageData {
   label: string;
   status: RouteProgressStageStatusData;
+}
+
+interface QueryRouterComparisonRowData {
+  routerMode: RouterModeNameData;
+  response: RouteToolsResponseData;
+  topOneToolId: string | null;
+  topOneDisplayName: string;
+  expectedInTopFive: boolean | null;
+  expectedRank: number | null;
+  judgePickDisplayName: string;
+  verdictKind: QueryRouteVerdictKindData;
+  verdictLabel: string;
+  verdictReason: string;
+}
+
+interface QueryVerdictSummaryData {
+  label: string;
+  explanation: string;
 }
 
 interface RouterWorkbenchStateData {
@@ -51,6 +78,7 @@ interface RouterWorkbenchStateData {
   previewStatus: AsyncActionStatusData;
   judgedStatus: AsyncActionStatusData;
   metricsStatus: AsyncActionStatusData;
+  queryComparisonStatusState: AsyncActionStatusData;
   modeComparisonStatusState: AsyncActionStatusData;
   routerMode: RouterModeNameData;
   querySource: QuerySourceModeData;
@@ -65,6 +93,7 @@ interface RouterWorkbenchStateData {
   queries: RouteQueryInputData[];
   lastRouteRequest: RouteToolsRequestData | null;
   routeResponse: RouteToolsResponseData | null;
+  queryComparisonRowsList: QueryRouterComparisonRowData[];
   metricsReport: MetricReportOutputData | null;
   modeComparisonReportsList: MetricReportOutputData[];
   uploadStatusMessage: string;
@@ -78,6 +107,12 @@ const routerModeLabelsData: Record<RouterModeNameData, string> = {
   schema_aware: "Schema-aware BM25",
   hybrid: "Hybrid RRF",
 };
+
+const routerModeSequenceList: RouterModeNameData[] = [
+  "lexical",
+  "schema_aware",
+  "hybrid",
+];
 
 const defaultReadinessData: RouterAppReadinessData = {
   judge_key_ready: false,
@@ -113,6 +148,7 @@ function createInitialStateData(): RouterWorkbenchStateData {
     previewStatus: "idle",
     judgedStatus: "idle",
     metricsStatus: "idle",
+    queryComparisonStatusState: "idle",
     modeComparisonStatusState: "idle",
     routerMode: "lexical",
     querySource: "benchmark",
@@ -127,6 +163,7 @@ function createInitialStateData(): RouterWorkbenchStateData {
     queries: [],
     lastRouteRequest: null,
     routeResponse: null,
+    queryComparisonRowsList: [],
     metricsReport: null,
     modeComparisonReportsList: [],
     uploadStatusMessage: "",
@@ -213,6 +250,7 @@ function bindWorkbenchEventHandlers(
     "change",
     (event) => {
       state.selectedQueryId = (event.target as HTMLSelectElement).value;
+      clearQueryComparisonState(state);
       render();
     },
   );
@@ -227,6 +265,7 @@ function bindWorkbenchEventHandlers(
       )
         ? state.selectedQueryId
         : filteredQueries[0]?.id ?? "";
+      clearQueryComparisonState(state);
       render();
     },
   );
@@ -249,6 +288,7 @@ function bindWorkbenchEventHandlers(
     "input",
     (event) => {
       state.customQuery = (event.target as HTMLTextAreaElement).value;
+      clearQueryComparisonState(state);
       render();
     },
   );
@@ -257,6 +297,8 @@ function bindWorkbenchEventHandlers(
     "input",
     (event) => {
       state.recentContext = (event.target as HTMLTextAreaElement).value;
+      clearQueryComparisonState(state);
+      render();
     },
   );
 
@@ -278,6 +320,13 @@ function bindWorkbenchEventHandlers(
     "click",
     () => {
       void routeToolsForQuery(state, invoke, render);
+    },
+  );
+
+  queryElementById<HTMLButtonElement>(root, "routing-comparison-button")?.addEventListener(
+    "click",
+    () => {
+      void runQueryComparisonFlow(state, invoke, render);
     },
   );
 
@@ -505,6 +554,76 @@ async function routeToolsForQuery(
   render();
 }
 
+async function runQueryComparisonFlow(
+  state: RouterWorkbenchStateData,
+  invoke: InvokeFunction,
+  render: () => void,
+) {
+  if (!canRunPreviewNow(state) || state.queryComparisonStatusState === "running") return;
+  const judgedRouteEnabled = state.readiness.judged_route_enabled;
+  try {
+    state.errorMessage = "";
+    state.queryComparisonStatusState = "running";
+    state.queryComparisonRowsList = [];
+    state.routeResponse = null;
+    state.lastRouteRequest = null;
+    state.routeProgressStagesList = createRouteProgressStagesList(
+      judgedRouteEnabled ? "judged_running" : "preview_running",
+    );
+    pushActivityLogEntry(
+      state,
+      judgedRouteEnabled
+        ? "runQueryComparisonFlow comparing all modes with judge review."
+        : "runQueryComparisonFlow comparing all modes without judge review.",
+    );
+    render();
+
+    const comparisonRows = await Promise.all(
+      routerModeSequenceList.map(async (routerMode) => {
+        const routeRequest = createRouteRequestData(
+          state,
+          judgedRouteEnabled,
+          routerMode,
+        );
+        const response = judgedRouteEnabled
+          ? await invoke<RouteToolsResponseData>("route_tools_for_query", {
+              request: routeRequest,
+            })
+          : await invoke<RouteToolsResponseData>("run_cpu_preview_only", {
+              request: routeRequest,
+            });
+        return createQueryComparisonRowData(state, routerMode, response);
+      }),
+    );
+
+    state.queryComparisonRowsList = comparisonRows;
+    const selectedRow =
+      comparisonRows.find((row) => row.routerMode === state.routerMode) ??
+      comparisonRows[0] ??
+      null;
+    state.routeResponse = selectedRow?.response ?? null;
+    state.lastRouteRequest = selectedRow
+      ? {
+          ...createRouteRequestData(state, judgedRouteEnabled, selectedRow.routerMode),
+          api_key: null,
+          catalog_tools: null,
+        }
+      : null;
+    state.queryComparisonStatusState = "complete";
+    state.routeProgressStagesList = createRouteProgressStagesList(
+      judgedRouteEnabled ? "judged_complete" : "preview_complete",
+    );
+    pushActivityLogEntry(state, "runQueryComparisonFlow completed query comparison.");
+  } catch (error) {
+    state.queryComparisonStatusState = "failed";
+    state.routeProgressStagesList = createRouteProgressStagesList(
+      judgedRouteEnabled ? "judged_failed" : "preview_failed",
+    );
+    state.errorMessage = errorToMessageText(error);
+  }
+  render();
+}
+
 async function evaluateRoutingSubsetMetrics(
   state: RouterWorkbenchStateData,
   invoke: InvokeFunction,
@@ -623,13 +742,14 @@ async function exportDiagnosticLogsText(
 function createRouteRequestData(
   state: RouterWorkbenchStateData,
   includeKey: boolean,
+  routerMode: RouterModeNameData = state.routerMode,
 ): RouteToolsRequestData {
   return {
     dataset_path: null,
     catalog_tools: state.catalogSourceModeName === "custom" ? state.tools : null,
     query: getActiveQueryTextValue(state),
     recent_context: state.recentContext.trim() || null,
-    router_mode: state.routerMode,
+    router_mode: routerMode,
     api_key: includeKey ? state.apiKey.trim() || null : null,
   };
 }
@@ -729,6 +849,200 @@ function createBenchmarkGoldMatch(state: RouterWorkbenchStateData) {
         ? "none"
         : goldMatchStatus,
   };
+}
+
+function createQueryComparisonRowData(
+  state: RouterWorkbenchStateData,
+  routerMode: RouterModeNameData,
+  response: RouteToolsResponseData,
+): QueryRouterComparisonRowData {
+  const query = state.querySource === "benchmark" ? getSelectedQueryRecordData(state) : undefined;
+  const topOneToolId = response.candidates[0]?.tool_id ?? null;
+  const expectedRank = query
+    ? findExpectedToolRankNumber(query, response.candidates)
+    : null;
+  const expectedInTopFive = query ? expectedRank !== null && expectedRank <= 5 : null;
+  const verdict = scoreQueryRouterOutcome(query, response, expectedRank);
+  return {
+    routerMode,
+    response,
+    topOneToolId,
+    topOneDisplayName: topOneToolId
+      ? createToolDisplayName(topOneToolId, state.tools)
+      : "No candidate",
+    expectedInTopFive,
+    expectedRank,
+    judgePickDisplayName: createJudgePickDisplayName(response, state.tools),
+    verdictKind: verdict.verdictKind,
+    verdictLabel: verdict.verdictLabel,
+    verdictReason: verdict.verdictReason,
+  };
+}
+
+function scoreQueryRouterOutcome(
+  query: RouteQueryInputData | undefined,
+  response: RouteToolsResponseData,
+  expectedRank: number | null,
+): {
+  verdictKind: QueryRouteVerdictKindData;
+  verdictLabel: string;
+  verdictReason: string;
+} {
+  if (!query) {
+    return {
+      verdictKind: "no_benchmark_label",
+      verdictLabel: "No benchmark label",
+      verdictReason: "Custom queries do not have a gold tool label in this MVP.",
+    };
+  }
+
+  const decision = response.judge_decision;
+  const selectedToolId = decision?.selected_tool_id ?? null;
+  const topOneToolId = response.candidates[0]?.tool_id ?? null;
+  const expectedInTopFive = expectedRank !== null && expectedRank <= 5;
+  const selectedExpectedTool = selectedToolId
+    ? query.required_tool_ids.includes(selectedToolId)
+    : false;
+  const topOneExpectedTool = topOneToolId
+    ? query.required_tool_ids.includes(topOneToolId)
+    : false;
+  const judgeAbstained = decision?.decision === "abstain" || !selectedToolId;
+
+  if (!query.should_route) {
+    if (!decision) {
+      return {
+        verdictKind: "judge_not_run",
+        verdictLabel: "Judge not run",
+        verdictReason: "This abstain-labeled query still needs judge review to prove abstention.",
+      };
+    }
+    return judgeAbstained
+      ? {
+          verdictKind: "correct_abstain",
+          verdictLabel: "Correct abstain",
+          verdictReason: "The judge rejected routing for a query that should not call a tool.",
+        }
+      : {
+          verdictKind: "abstention_miss",
+          verdictLabel: "Abstention miss",
+          verdictReason: "The judge selected a tool for a query labeled as no-route.",
+        };
+  }
+
+  if (!expectedInTopFive) {
+    return {
+      verdictKind: "cpu_top_five_miss",
+      verdictLabel: "CPU top-five miss",
+      verdictReason: "The expected tool never reached the judge shortlist.",
+    };
+  }
+
+  if (!decision) {
+    return {
+      verdictKind: topOneExpectedTool ? "pass" : "judge_not_run",
+      verdictLabel: topOneExpectedTool ? "Pass" : "Judge not run",
+      verdictReason: topOneExpectedTool
+        ? "The CPU top candidate already matches the expected tool, but judge review was not run."
+        : `The expected tool survived at rank ${expectedRank}, but judge review was not run.`,
+    };
+  }
+
+  if (selectedExpectedTool) {
+    return topOneExpectedTool
+      ? {
+          verdictKind: "pass",
+          verdictLabel: "Pass",
+          verdictReason: "The CPU top candidate and judge pick both match the expected tool.",
+        }
+      : {
+          verdictKind: "judge_rescued",
+          verdictLabel: "Judge rescued",
+          verdictReason: `The CPU top candidate was wrong, but the judge selected the expected tool from rank ${expectedRank}.`,
+        };
+  }
+
+  return {
+    verdictKind: "wrong_judge_pick",
+    verdictLabel: "Wrong judge pick",
+    verdictReason: judgeAbstained
+      ? "The judge abstained even though the expected tool was available."
+      : "The judge selected a different tool even though the expected tool was available.",
+  };
+}
+
+function findExpectedToolRankNumber(
+  query: RouteQueryInputData,
+  candidates: CandidateEvidenceCardData[],
+): number | null {
+  const candidate = candidates
+    .slice(0, 5)
+    .find((item) => query.required_tool_ids.includes(item.tool_id));
+  return candidate?.rank ?? null;
+}
+
+function createJudgePickDisplayName(
+  response: RouteToolsResponseData,
+  tools: ToolCatalogRecordData[],
+): string {
+  const decision = response.judge_decision;
+  if (!decision) return "Judge not run";
+  if (decision.decision === "abstain" || !decision.selected_tool_id) {
+    return "Abstain";
+  }
+  return createToolDisplayName(decision.selected_tool_id, tools);
+}
+
+function createToolDisplayName(
+  toolId: string,
+  tools: ToolCatalogRecordData[],
+): string {
+  const tool = tools.find((item) => item.id === toolId);
+  if (!tool) return createReadableIdentifierLabel(toolId);
+  const preferredName =
+    tool.name ||
+    tool.source_tool_id ||
+    tool.server_name ||
+    tool.server_id ||
+    tool.id;
+  const readableName = createReadableIdentifierLabel(preferredName);
+  const serverName = tool.server_name
+    ? createReadableIdentifierLabel(tool.server_name)
+    : "";
+  return serverName && !readableName.toLowerCase().includes(serverName.toLowerCase())
+    ? `${serverName} ${readableName}`
+    : readableName;
+}
+
+function createReadableIdentifierLabel(value: string): string {
+  if (value.trim().includes(" ")) return value.trim();
+  const lastNamespacePart = value.split(/::|\./).filter(Boolean).at(-1) ?? value;
+  return createTitleCasePhraseLabel(lastNamespacePart.replaceAll(/[_-]+/g, " "));
+}
+
+function createTitleCasePhraseLabel(value: string): string {
+  const words = value
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+  if (words.length === 0) return value;
+  return words
+    .map((word) => `${word.charAt(0).toUpperCase()}${word.slice(1)}`)
+    .join(" ");
+}
+
+function createReadableQueryLabel(
+  query: RouteQueryInputData,
+  tools: ToolCatalogRecordData[],
+): string {
+  const expected = query.should_route
+    ? createToolDisplayName(query.required_tool_ids[0] ?? "unknown_tool", tools)
+    : "Expected outcome: abstain";
+  return `${query.query} - ${expected} (${query.id})`;
+}
+
+function clearQueryComparisonState(state: RouterWorkbenchStateData) {
+  state.queryComparisonRowsList = [];
+  state.queryComparisonStatusState = "idle";
 }
 
 function getActiveQueryTextValue(state: RouterWorkbenchStateData): string {
@@ -984,10 +1298,10 @@ function renderRouterWorkbenchView(state: RouterWorkbenchStateData): string {
         ${renderJudgeKeyCard(state)}
         ${renderEvaluationPackCard(state)}
         ${renderQuerySourcePanel(state)}
-        ${renderRouterModePanel(state)}
+        ${renderExpectedToolSummary(state)}
         ${renderRouteActionPanel(state)}
-        ${renderRouteResultPanel(state)}
-        ${renderBenchmarkHealthPanel(state)}
+        ${renderRoutingComparisonPanel(state)}
+        ${renderAdvancedEvidenceDrawer(state)}
         ${state.errorMessage ? `<section class="error" role="alert">${escapeHtmlText(state.errorMessage)}</section>` : ""}
       </section>
       ${renderActivityLogPanel(state)}
@@ -1032,7 +1346,6 @@ function renderEvaluationPackCard(state: RouterWorkbenchStateData): string {
           <h2>Training Benchmark</h2>
           <p>Bundled subset with labeled tool ids, abstentions, relevance grades, and failure modes.</p>
         </div>
-        <button id="download-pack-button" class="secondary-action" ${state.packStatus !== "complete" ? "disabled" : ""}>Download Evaluation Pack</button>
       </div>
       <div class="metric-grid">
         <div><strong>${catalogStats.tool_count}</strong><span>tools</span></div>
@@ -1042,16 +1355,6 @@ function renderEvaluationPackCard(state: RouterWorkbenchStateData): string {
         <div><strong>${catalogStats.route_required_count}</strong><span>route labels</span></div>
         <div><strong>${catalogStats.abstention_count}</strong><span>abstains</span></div>
         <div><strong>${escapeHtmlText(createDuplicateToolStatusText(state.tools))}</strong><span>duplicate-id status</span></div>
-      </div>
-      <div class="upload-grid">
-        <label class="field-stack" for="custom-catalog-input">
-          <span>Custom catalog JSON</span>
-          <input id="custom-catalog-input" type="file" accept="application/json,.json" />
-        </label>
-        <label class="field-stack" for="custom-query-file-input">
-          <span>Custom query JSON</span>
-          <input id="custom-query-file-input" type="file" accept="application/json,.json" />
-        </label>
       </div>
       <p class="query-summary">Catalog: ${state.catalogSourceModeName}. Queries: ${state.queryPackSourceModeName}.${state.uploadStatusMessage ? ` ${escapeHtmlText(state.uploadStatusMessage)}` : ""}</p>
     </section>
@@ -1063,8 +1366,8 @@ function renderQuerySourcePanel(state: RouterWorkbenchStateData): string {
   const filteredQueries = getFilteredQueriesList(state);
   const options = filteredQueries
     .map((query) => {
-      const expected = query.required_tool_ids[0] ?? "abstain";
-      return `<option value="${escapeAttributeText(query.id)}" ${query.id === state.selectedQueryId ? "selected" : ""}>${escapeHtmlText(`${query.id} -> ${expected}`)}</option>`;
+      const readableLabel = createReadableQueryLabel(query, state.tools);
+      return `<option value="${escapeAttributeText(query.id)}" ${query.id === state.selectedQueryId ? "selected" : ""}>${escapeHtmlText(readableLabel)}</option>`;
     })
     .join("") || `<option value="">No matching benchmark query</option>`;
   return `
@@ -1091,7 +1394,7 @@ function renderQuerySourcePanel(state: RouterWorkbenchStateData): string {
               <select id="benchmark-query-select" ${filteredQueries.length === 0 ? "disabled" : ""}>${options}</select>
             </label>
             <p class="query-summary">Showing ${filteredQueries.length} of ${state.queries.length} benchmark queries.</p>
-            <p class="query-summary">${renderQuerySummaryText(selected)}</p>
+            <p class="query-summary">${renderQuerySummaryText(selected, state.tools)}</p>
           `
           : `
             <label class="field-stack" for="custom-query-input">
@@ -1133,19 +1436,83 @@ function renderRouterModePanel(state: RouterWorkbenchStateData): string {
   `;
 }
 
+function renderExpectedToolSummary(state: RouterWorkbenchStateData): string {
+  if (state.querySource === "custom") {
+    return `
+      <section class="expected-tool-panel">
+        <h2>Expected Outcome</h2>
+        <p><strong>No benchmark label</strong></p>
+        <p class="query-summary">Custom inquiries can be compared across routers, but this MVP cannot score pass/fail without a gold tool label.</p>
+      </section>
+    `;
+  }
+  const query = getSelectedQueryRecordData(state);
+  if (!query) {
+    return `
+      <section class="expected-tool-panel">
+        <h2>Expected Outcome</h2>
+        <p class="empty-state">Select a benchmark query to see the expected route.</p>
+      </section>
+    `;
+  }
+  const expectedText = query.should_route
+    ? createToolDisplayName(query.required_tool_ids[0] ?? "unknown_tool", state.tools)
+    : "Abstain";
+  const failureModes = query.failure_modes.join(", ") || "none listed";
+  return `
+    <section class="expected-tool-panel">
+      <div class="section-title-row">
+        <div>
+          <h2>Expected Outcome</h2>
+          <p>${escapeHtmlText(query.query)}</p>
+        </div>
+        <div class="decision-box">
+          <strong>${query.should_route ? "Expected tool" : "Expected outcome"}</strong>
+          <span>${escapeHtmlText(expectedText)}</span>
+        </div>
+      </div>
+      <p class="query-summary">Failure modes: ${escapeHtmlText(failureModes)}.</p>
+    </section>
+  `;
+}
+
 function renderRouteActionPanel(state: RouterWorkbenchStateData): string {
   return `
     <section class="action-panel">
+      <button id="routing-comparison-button" ${!canRunPreviewNow(state) || state.queryComparisonStatusState === "running" ? "disabled" : ""}>${state.queryComparisonStatusState === "running" ? "Running Routing Comparison" : "Run Routing Comparison"}</button>
+      ${state.exportMessage ? `<p class="export-message">${escapeHtmlText(state.exportMessage)}</p>` : ""}
+      ${renderRouteProgressStagesList(state.routeProgressStagesList)}
+    </section>
+  `;
+}
+
+function renderAdvancedRouteControls(state: RouterWorkbenchStateData): string {
+  return `
+    <div class="advanced-control-grid">
       <button id="cpu-preview-button" ${!canRunPreviewNow(state) || state.previewStatus === "running" ? "disabled" : ""}>${state.previewStatus === "running" ? "Running Preview" : "Run CPU Preview"}</button>
       <button id="judged-route-button" ${!canRunJudgedRoute(state) || state.judgedStatus === "running" ? "disabled" : ""}>${state.judgedStatus === "running" ? "Running Judge" : "Run Judged Route"}</button>
       <button id="metrics-run-button" class="secondary-action" ${state.metricsStatus === "running" || state.packStatus !== "complete" ? "disabled" : ""}>${state.metricsStatus === "running" ? "Evaluating" : "Run Benchmark Eval"}</button>
       <button id="comparison-run-button" class="secondary-action" ${state.modeComparisonStatusState === "running" || state.packStatus !== "complete" ? "disabled" : ""}>${state.modeComparisonStatusState === "running" ? "Comparing Modes" : "Compare All Modes"}</button>
+      <button id="download-pack-button" class="secondary-action" ${state.packStatus !== "complete" ? "disabled" : ""}>Download Evaluation Pack</button>
       <button id="export-judged-evidence-button" class="secondary-action" ${!canExportJudgedRoute(state) ? "disabled" : ""}>Export Judged Route Evidence</button>
       <button id="export-preview-evidence-button" class="secondary-action" ${!canExportPreviewEvidence(state) ? "disabled" : ""}>Export Preview Route Evidence</button>
       <button id="export-logs-button" class="secondary-action">Export Logs</button>
-      ${state.exportMessage ? `<p class="export-message">${escapeHtmlText(state.exportMessage)}</p>` : ""}
-      ${renderRouteProgressStagesList(state.routeProgressStagesList)}
-    </section>
+    </div>
+  `;
+}
+
+function renderAdvancedUploadControls(): string {
+  return `
+    <div class="upload-grid">
+      <label class="field-stack" for="custom-catalog-input">
+        <span>Custom catalog JSON</span>
+        <input id="custom-catalog-input" type="file" accept="application/json,.json" />
+      </label>
+      <label class="field-stack" for="custom-query-file-input">
+        <span>Custom query JSON</span>
+        <input id="custom-query-file-input" type="file" accept="application/json,.json" />
+      </label>
+    </div>
   `;
 }
 
@@ -1222,6 +1589,112 @@ function renderCandidateEvidenceCards(
         )
         .join("")}
     </div>
+  `;
+}
+
+function renderRoutingComparisonPanel(state: RouterWorkbenchStateData): string {
+  if (state.queryComparisonRowsList.length === 0) {
+    return `
+      <section class="comparison-panel">
+        <h2>Query-Level Router Comparison</h2>
+        <p class="empty-state">Run routing comparison to see how each CPU router handles this one inquiry.</p>
+      </section>
+    `;
+  }
+  const summary = createQueryVerdictSummary(state.queryComparisonRowsList);
+  return `
+    <section class="comparison-panel">
+      <div class="section-title-row">
+        <div>
+          <h2>Query-Level Router Comparison</h2>
+          <p>One query, three deterministic shortlists, optional judge review.</p>
+        </div>
+        <div class="decision-box">
+          <strong>${escapeHtmlText(summary.label)}</strong>
+          <span>${escapeHtmlText(summary.explanation)}</span>
+        </div>
+      </div>
+      <div class="comparison-table-wrap">
+        <table class="comparison-table query-comparison-table">
+          <thead>
+            <tr>
+              <th>Mode</th>
+              <th>Top 1</th>
+              <th>Expected in top five</th>
+              <th>Rank</th>
+              <th>Judge pick</th>
+              <th>Verdict</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${state.queryComparisonRowsList
+              .map(
+                (row) => `
+                  <tr class="is-${row.verdictKind}">
+                    <td>${routerModeLabelsData[row.routerMode]}</td>
+                    <td>${escapeHtmlText(row.topOneDisplayName)}</td>
+                    <td>${row.expectedInTopFive === null ? "No benchmark label" : row.expectedInTopFive ? "Yes" : "No"}</td>
+                    <td>${row.expectedRank ? `rank ${row.expectedRank}` : "-"}</td>
+                    <td>${escapeHtmlText(row.judgePickDisplayName)}</td>
+                    <td><strong>${escapeHtmlText(row.verdictLabel)}</strong><span>${escapeHtmlText(row.verdictReason)}</span></td>
+                  </tr>
+                `,
+              )
+              .join("")}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  `;
+}
+
+function createQueryVerdictSummary(
+  rows: QueryRouterComparisonRowData[],
+): QueryVerdictSummaryData {
+  if (rows.some((row) => row.verdictKind === "judge_rescued")) {
+    return {
+      label: "Judge rescued",
+      explanation: "The bidirectional flow recovered the expected tool from a CPU top-five shortlist.",
+    };
+  }
+  if (rows.some((row) => row.verdictKind === "pass")) {
+    return {
+      label: "Pass",
+      explanation: "At least one router produced a correct top result or judged route.",
+    };
+  }
+  if (rows.every((row) => row.verdictKind === "judge_not_run")) {
+    return {
+      label: "Judge not run",
+      explanation: "CPU shortlist evidence is available; final top-one judgment needs a validated key.",
+    };
+  }
+  if (rows.every((row) => row.verdictKind === "no_benchmark_label")) {
+    return {
+      label: "No benchmark label",
+      explanation: "Custom query comparison is visible, but gold scoring is unavailable.",
+    };
+  }
+  return {
+    label: rows[0]?.verdictLabel ?? "No result",
+    explanation: rows[0]?.verdictReason ?? "Run comparison to score this query.",
+  };
+}
+
+function renderAdvancedEvidenceDrawer(state: RouterWorkbenchStateData): string {
+  return `
+    <details class="advanced-evidence" data-testid="advanced-evidence">
+      <summary>Advanced Evidence</summary>
+      <div class="advanced-evidence-body">
+        ${renderAdvancedUploadControls()}
+        ${renderRouterModePanel(state)}
+        <section class="action-panel action-panel--advanced">
+          ${renderAdvancedRouteControls(state)}
+        </section>
+        ${renderRouteResultPanel(state)}
+        ${renderBenchmarkHealthPanel(state)}
+      </div>
+    </details>
   `;
 }
 
@@ -1326,9 +1799,15 @@ function renderActivityLogPanel(state: RouterWorkbenchStateData): string {
   `;
 }
 
-function renderQuerySummaryText(query: RouteQueryInputData | undefined): string {
+function renderQuerySummaryText(
+  query: RouteQueryInputData | undefined,
+  tools: ToolCatalogRecordData[],
+): string {
   if (!query) return "No benchmark query selected.";
-  const expected = query.required_tool_ids.join(", ") || "abstain";
+  const expected =
+    query.required_tool_ids
+      .map((toolId) => createToolDisplayName(toolId, tools))
+      .join(", ") || "abstain";
   const failureModes = query.failure_modes.join(", ") || "none listed";
   return `Expected: ${expected}. Should route: ${query.should_route ? "yes" : "no"}. Failure modes: ${failureModes}.`;
 }

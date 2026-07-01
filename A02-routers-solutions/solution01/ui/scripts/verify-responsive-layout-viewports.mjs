@@ -45,7 +45,7 @@ async function runResponsiveLayoutCheck() {
     console.log(`Responsive layout report: ${reportPath}`);
     for (const result of results) {
       console.log(
-        `${result.viewport.name}: width=${result.viewport.width}, screenshot=${result.screenshotPath}, overflow=${result.audit.overflowCount}, overlaps=${result.audit.overlapCount}`,
+        `${result.viewport.name}: width=${result.viewport.width}, screenshot=${result.screenshotPath}, overflow=${result.audit.overflowCount}, overlaps=${result.audit.overlapCount}, comparisonRows=${result.audit.comparisonRowCount}, advancedOpen=${result.audit.advancedEvidenceOpen}`,
       );
     }
 
@@ -55,6 +55,7 @@ async function runResponsiveLayoutCheck() {
         result.audit.bodyScrollWidth > result.viewport.width + 1 ||
         result.audit.overflowCount > 0 ||
         result.audit.overlapCount > 0 ||
+        result.audit.comparisonRowCount !== 3 ||
         result.audit.candidateCount !== 5,
     );
     if (failed) {
@@ -105,11 +106,9 @@ async function captureViewportProofs() {
       await page.waitForFunction(() =>
         document.body.textContent?.includes("Tool Router Evidence Console"),
       );
-      await page.getByRole("button", { name: /Run CPU Preview/ }).click();
-      await page.getByRole("button", { name: /Run Benchmark Eval/ }).click();
-      await page.getByRole("button", { name: /Compare All Modes/ }).click();
+      await page.getByRole("button", { name: /Run Routing Comparison/ }).click();
       await page.waitForFunction(
-        () => document.querySelectorAll('[data-testid="candidate-card"]').length === 5,
+        () => document.querySelectorAll(".query-comparison-table tbody tr").length === 3,
       );
       const screenshotPath = path.join(
         outputDirectoryPath,
@@ -139,8 +138,16 @@ async function auditViewportLayoutState(page) {
       );
     }
 
+    function isHiddenByClosedDetails(element) {
+      const details = element.closest("details");
+      if (!details || details.open) return false;
+      return element.tagName !== "SUMMARY" && !element.closest("summary");
+    }
+
     const viewportWidth = window.innerWidth;
-    const allElements = [...document.querySelectorAll("body *")];
+    const allElements = [...document.querySelectorAll("body *")].filter(
+      (element) => !isHiddenByClosedDetails(element),
+    );
     const overflowElements = allElements.flatMap((element) => {
       if (element.closest(".comparison-table-wrap")) return [];
       const style = getComputedStyle(element);
@@ -213,6 +220,10 @@ async function auditViewportLayoutState(page) {
       overflowElements: overflowElements.slice(0, 20),
       overlapCount: overlaps.length,
       overlaps: overlaps.slice(0, 10),
+      comparisonRowCount: document.querySelectorAll(".query-comparison-table tbody tr").length,
+      advancedEvidenceOpen:
+        document.querySelector('[data-testid="advanced-evidence"]')?.hasAttribute("open") ??
+        false,
       candidateCount: document.querySelectorAll('[data-testid="candidate-card"]').length,
     };
   });
