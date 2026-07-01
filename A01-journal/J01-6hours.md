@@ -31,6 +31,4 @@ As a mathematical equation
 But due to time constraints, I will be focusing on the router
 
 
-
-
 ```
