@@ -11,7 +11,11 @@
 7. The bundled pack is a curated OSS/reference subset with 947 tools and 50 queries.
 8. The desktop shell uses Tauri 2 with a Rust Cargo workspace backend.
 9. The UI uses TypeScript, Vite, plain DOM rendering, Vitest, and Playwright layout checks.
-10. OpenAI-compatible judge calls are isolated behind the Rust judge adapter, with mock fallback support.
+10. The final route decision requires a validated OpenAI API key; the run button stays disabled without it.
+
+## OpenAI Key Required
+
+The desktop app can open without a key, but `Run Selected Route Decision` will not run until an OpenAI API key is entered and validated in the Judge Session panel.
 
 ## Build Instructions
 
